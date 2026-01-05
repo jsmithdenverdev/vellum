@@ -2,218 +2,242 @@
  * ResourceNode Component
  *
  * Custom React Flow node for displaying CloudFormation resources.
- * Uses Cloudscape-inspired styling for consistency with the UI.
+ * Styled to match AWS Infrastructure Composer design language.
  */
 
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import type { CfnNodeData } from "@/types/graph";
+import {
+  getServiceInfo,
+  extractResourceName,
+  type ServiceInfo,
+} from "@/lib/aws-icons";
+import { useTheme } from "@/hooks/useTheme";
 
 // =============================================================================
-// Service Colors
+// Design Tokens
 // =============================================================================
 
 /**
- * Color mapping for AWS services (subset of common services)
- * Uses colors that complement Cloudscape design
+ * AWS Infrastructure Composer design tokens
  */
-const SERVICE_COLORS: Record<string, { bg: string; border: string }> = {
-  EC2: { bg: "#ff9900", border: "#cc7a00" },
-  S3: { bg: "#569a31", border: "#3d6d23" },
-  Lambda: { bg: "#ff9900", border: "#cc7a00" },
-  DynamoDB: { bg: "#4053d6", border: "#2e3ca6" },
-  RDS: { bg: "#4053d6", border: "#2e3ca6" },
-  IAM: { bg: "#dd344c", border: "#a82639" },
-  VPC: { bg: "#8c4fff", border: "#6b3cc7" },
-  CloudFormation: { bg: "#e63b5f", border: "#b82d4a" },
-  SNS: { bg: "#d93d6e", border: "#a82f56" },
-  SQS: { bg: "#d93d6e", border: "#a82f56" },
-  CloudWatch: { bg: "#e63b5f", border: "#b82d4a" },
-  APIGateway: { bg: "#ff4f8b", border: "#cc3f70" },
-  CloudFront: { bg: "#8c4fff", border: "#6b3cc7" },
-  Route53: { bg: "#8c4fff", border: "#6b3cc7" },
-  ECS: { bg: "#ff9900", border: "#cc7a00" },
-  EKS: { bg: "#ff9900", border: "#cc7a00" },
-  Logs: { bg: "#e63b5f", border: "#b82d4a" },
-  Events: { bg: "#e63b5f", border: "#b82d4a" },
-  StepFunctions: { bg: "#ff4f8b", border: "#cc3f70" },
-  Cognito: { bg: "#dd344c", border: "#a82639" },
-  SecretsManager: { bg: "#dd344c", border: "#a82639" },
-  KMS: { bg: "#dd344c", border: "#a82639" },
-  ElasticLoadBalancingV2: { bg: "#8c4fff", border: "#6b3cc7" },
-  AutoScaling: { bg: "#ff9900", border: "#cc7a00" },
-  Custom: { bg: "#687078", border: "#4a5157" },
-  Unknown: { bg: "#687078", border: "#4a5157" },
-};
+const DESIGN_TOKENS = {
+  // Dimensions
+  nodeWidth: 220,
+  iconSize: 40,
+  borderRadius: 8,
+  iconBorderRadius: 6,
 
-/**
- * Extracts the AWS service name from a resource type
- * e.g., "AWS::EC2::Instance" -> "EC2"
- */
-function extractService(resourceType: string): string {
-  const parts = resourceType.split("::");
-  if (parts.length >= 2 && parts[0] === "AWS") {
-    return parts[1];
-  }
-  if (resourceType.startsWith("Custom::")) {
-    return "Custom";
-  }
-  return "Unknown";
-}
+  // Light mode colors
+  light: {
+    background: "#ffffff",
+    border: "#d1d5db",
+    borderSelected: "#0972d3",
+    textPrimary: "#16191f",
+    textSecondary: "#5f6b7a",
+    handleBackground: "#687078",
+    handleBorder: "#ffffff",
+    shadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+    shadowSelected: "0 0 0 2px rgba(9, 114, 211, 0.3), 0 2px 4px rgba(0, 0, 0, 0.15)",
+  },
 
-/**
- * Extracts the resource name from a resource type
- * e.g., "AWS::EC2::Instance" -> "Instance"
- */
-function extractResourceName(resourceType: string): string {
-  const parts = resourceType.split("::");
-  if (parts.length >= 3) {
-    return parts.slice(2).join("::");
-  }
-  if (parts.length === 2) {
-    return parts[1];
-  }
-  return resourceType;
-}
+  // Dark mode colors (AWS Console dark theme)
+  dark: {
+    background: "#232f3e",
+    border: "#3f4b5b",
+    borderSelected: "#539fe5",
+    textPrimary: "#ffffff",
+    textSecondary: "#8d99a8",
+    handleBackground: "#8d99a8",
+    handleBorder: "#232f3e",
+    shadow: "0 1px 3px rgba(0, 0, 0, 0.3)",
+    shadowSelected: "0 0 0 2px rgba(83, 159, 229, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3)",
+  },
 
-/**
- * Gets the color scheme for a service, falling back to default
- */
-function getServiceColors(service: string): { bg: string; border: string } {
-  return SERVICE_COLORS[service] ?? SERVICE_COLORS.Unknown;
-}
+  // Typography
+  fontFamily: '"Amazon Ember", "Helvetica Neue", Roboto, Arial, sans-serif',
+  fontSizePrimary: 13,
+  fontSizeSecondary: 11,
+} as const;
 
 // =============================================================================
-// Styles
+// Style Generators
 // =============================================================================
 
-const nodeStyles: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "10px",
-  padding: "8px 12px",
-  backgroundColor: "#ffffff",
-  border: "1px solid #d1d5db",
-  borderRadius: "8px",
-  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-  minWidth: "180px",
-  maxWidth: "240px",
-  fontSize: "13px",
-  fontFamily:
-    '"Amazon Ember", "Helvetica Neue", Roboto, Arial, sans-serif',
-  transition: "box-shadow 0.2s ease, border-color 0.2s ease",
-};
-
-const nodeStylesSelected: React.CSSProperties = {
-  ...nodeStyles,
-  borderColor: "#0972d3",
-  boxShadow: "0 0 0 2px rgba(9, 114, 211, 0.3), 0 2px 4px rgba(0, 0, 0, 0.15)",
-};
-
-const iconContainerStyles = (colors: {
-  bg: string;
+interface ThemeColors {
+  background: string;
   border: string;
-}): React.CSSProperties => ({
-  width: "32px",
-  height: "32px",
-  borderRadius: "6px",
-  backgroundColor: colors.bg,
-  border: `1px solid ${colors.border}`,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  flexShrink: 0,
-  color: "#ffffff",
-  fontSize: "11px",
-  fontWeight: 600,
-  letterSpacing: "0.5px",
-});
+  borderSelected: string;
+  textPrimary: string;
+  textSecondary: string;
+  handleBackground: string;
+  handleBorder: string;
+  shadow: string;
+  shadowSelected: string;
+}
 
-const contentStyles: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "2px",
-  overflow: "hidden",
-  minWidth: 0,
-};
+function getThemeColors(isDarkMode: boolean): ThemeColors {
+  return isDarkMode ? DESIGN_TOKENS.dark : DESIGN_TOKENS.light;
+}
 
-const labelStyles: React.CSSProperties = {
-  fontWeight: 600,
-  color: "#16191f",
-  whiteSpace: "nowrap",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  lineHeight: "1.3",
-};
+function createNodeStyles(
+  colors: ThemeColors,
+  selected: boolean
+): React.CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    padding: "10px 14px",
+    backgroundColor: colors.background,
+    border: `1px solid ${selected ? colors.borderSelected : colors.border}`,
+    borderRadius: `${DESIGN_TOKENS.borderRadius}px`,
+    boxShadow: selected ? colors.shadowSelected : colors.shadow,
+    width: `${DESIGN_TOKENS.nodeWidth}px`,
+    fontSize: `${DESIGN_TOKENS.fontSizePrimary}px`,
+    fontFamily: DESIGN_TOKENS.fontFamily,
+    transition: "box-shadow 0.2s ease, border-color 0.2s ease",
+    cursor: "grab",
+  };
+}
 
-const typeStyles: React.CSSProperties = {
-  fontSize: "11px",
-  color: "#5f6b7a",
-  whiteSpace: "nowrap",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  lineHeight: "1.2",
-};
+function createIconContainerStyles(
+  serviceInfo: ServiceInfo
+): React.CSSProperties {
+  return {
+    width: `${DESIGN_TOKENS.iconSize}px`,
+    height: `${DESIGN_TOKENS.iconSize}px`,
+    borderRadius: `${DESIGN_TOKENS.iconBorderRadius}px`,
+    backgroundColor: serviceInfo.color,
+    border: `1px solid ${serviceInfo.borderColor}`,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    color: "#ffffff",
+    fontSize: "12px",
+    fontWeight: 700,
+    letterSpacing: "0.3px",
+    textShadow: "0 1px 1px rgba(0, 0, 0, 0.2)",
+  };
+}
 
-const handleStyles: React.CSSProperties = {
-  width: "8px",
-  height: "8px",
-  backgroundColor: "#687078",
-  border: "2px solid #ffffff",
-};
+function createContentStyles(): React.CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: "3px",
+    overflow: "hidden",
+    minWidth: 0,
+    flex: 1,
+  };
+}
+
+function createLabelStyles(colors: ThemeColors): React.CSSProperties {
+  return {
+    fontWeight: 600,
+    color: colors.textPrimary,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    lineHeight: 1.3,
+    fontSize: `${DESIGN_TOKENS.fontSizePrimary}px`,
+  };
+}
+
+function createTypeStyles(colors: ThemeColors): React.CSSProperties {
+  return {
+    fontSize: `${DESIGN_TOKENS.fontSizeSecondary}px`,
+    color: colors.textSecondary,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    lineHeight: 1.2,
+    fontWeight: 400,
+  };
+}
+
+function createHandleStyles(
+  colors: ThemeColors,
+  position: "left" | "right"
+): React.CSSProperties {
+  return {
+    width: "10px",
+    height: "10px",
+    backgroundColor: colors.handleBackground,
+    border: `2px solid ${colors.handleBorder}`,
+    borderRadius: "50%",
+    ...(position === "left" ? { left: "-5px" } : { right: "-5px" }),
+  };
+}
 
 // =============================================================================
 // Component
 // =============================================================================
 
-/**
- * Gets the abbreviated service name for the icon
- */
-function getServiceAbbr(service: string): string {
-  const abbrs: Record<string, string> = {
-    EC2: "EC2",
-    S3: "S3",
-    Lambda: "LMB",
-    DynamoDB: "DDB",
-    RDS: "RDS",
-    IAM: "IAM",
-    VPC: "VPC",
-    CloudFormation: "CFN",
-    SNS: "SNS",
-    SQS: "SQS",
-    CloudWatch: "CW",
-    APIGateway: "API",
-    CloudFront: "CF",
-    Route53: "R53",
-    ECS: "ECS",
-    EKS: "EKS",
-    Logs: "LOG",
-    Events: "EVT",
-    StepFunctions: "SFN",
-    Cognito: "COG",
-    SecretsManager: "SM",
-    KMS: "KMS",
-    ElasticLoadBalancingV2: "ELB",
-    AutoScaling: "ASG",
-    Custom: "CST",
-  };
-  return abbrs[service] ?? service.substring(0, 3).toUpperCase();
-}
-
 // Define the node type for this component
 type CfnResourceNode = Node<CfnNodeData, "cfnResource">;
 
 /**
- * Custom React Flow node component for CloudFormation resources
+ * Custom React Flow node component for CloudFormation resources.
+ * Styled to match AWS Infrastructure Composer design.
+ *
+ * Structure:
+ * ```
+ * +----------------------------------+
+ * | +------+                         |
+ * | | icon |  MyFunction             |
+ * | |      |  AWS::Lambda::Function  |
+ * | +------+                         |
+ * +----------------------------------+
+ * ```
  */
 function ResourceNodeComponent({
   data,
   selected,
 }: NodeProps<CfnResourceNode>) {
-  const service = extractService(data.resourceType);
-  const resourceName = extractResourceName(data.resourceType);
-  const colors = getServiceColors(service);
-  const abbr = getServiceAbbr(service);
+  const { isDarkMode } = useTheme();
+
+  // Memoize computed values
+  const serviceInfo = useMemo(
+    () => getServiceInfo(data.resourceType),
+    [data.resourceType]
+  );
+
+  const resourceName = useMemo(
+    () => extractResourceName(data.resourceType),
+    [data.resourceType]
+  );
+
+  const colors = useMemo(() => getThemeColors(isDarkMode), [isDarkMode]);
+
+  // Memoize styles to prevent unnecessary object creation
+  const nodeStyles = useMemo(
+    () => createNodeStyles(colors, selected ?? false),
+    [colors, selected]
+  );
+
+  const iconContainerStyles = useMemo(
+    () => createIconContainerStyles(serviceInfo),
+    [serviceInfo]
+  );
+
+  const contentStyles = useMemo(() => createContentStyles(), []);
+
+  const labelStyles = useMemo(() => createLabelStyles(colors), [colors]);
+
+  const typeStyles = useMemo(() => createTypeStyles(colors), [colors]);
+
+  const leftHandleStyles = useMemo(
+    () => createHandleStyles(colors, "left"),
+    [colors]
+  );
+
+  const rightHandleStyles = useMemo(
+    () => createHandleStyles(colors, "right"),
+    [colors]
+  );
 
   return (
     <div style={{ position: "relative" }}>
@@ -221,13 +245,16 @@ function ResourceNodeComponent({
       <Handle
         type="target"
         position={Position.Left}
-        style={handleStyles}
+        style={leftHandleStyles}
+        id="target"
       />
 
       {/* Node content */}
-      <div style={selected ? nodeStylesSelected : nodeStyles}>
-        {/* Service icon placeholder */}
-        <div style={iconContainerStyles(colors)}>{abbr}</div>
+      <div style={nodeStyles}>
+        {/* Service icon with colored background */}
+        <div style={iconContainerStyles} aria-label={serviceInfo.name}>
+          {serviceInfo.abbreviation}
+        </div>
 
         {/* Resource info */}
         <div style={contentStyles}>
@@ -244,7 +271,8 @@ function ResourceNodeComponent({
       <Handle
         type="source"
         position={Position.Right}
-        style={handleStyles}
+        style={rightHandleStyles}
+        id="source"
       />
     </div>
   );

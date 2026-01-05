@@ -26,6 +26,7 @@ import SpaceBetween from "@cloudscape-design/components/space-between";
 import Spinner from "@cloudscape-design/components/spinner";
 
 import { ResourceNode } from "@/components/molecules";
+import { useTheme } from "@/hooks/useTheme";
 import type { CfnNode, CfnEdge, CfnNodeData } from "@/types/graph";
 
 // Import React Flow styles
@@ -62,24 +63,36 @@ const containerStyles: React.CSSProperties = {
   flexDirection: "column",
 };
 
-const flowContainerStyles: React.CSSProperties = {
-  flex: 1,
-  minHeight: "400px",
-  backgroundColor: "#fafafa",
-  borderRadius: "4px",
-  overflow: "hidden",
-};
+/**
+ * Get flow container styles based on theme
+ */
+function getFlowContainerStyles(isDarkMode: boolean): React.CSSProperties {
+  return {
+    flex: 1,
+    minHeight: "400px",
+    backgroundColor: isDarkMode ? "#0f1b2a" : "#fafafa",
+    borderRadius: "4px",
+    overflow: "hidden",
+  };
+}
 
-const loadingOverlayStyles: React.CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  backgroundColor: "rgba(255, 255, 255, 0.85)",
-  zIndex: 10,
-  borderRadius: "4px",
-};
+/**
+ * Get loading overlay styles based on theme
+ */
+function getLoadingOverlayStyles(isDarkMode: boolean): React.CSSProperties {
+  return {
+    position: "absolute",
+    inset: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: isDarkMode
+      ? "rgba(15, 27, 42, 0.85)"
+      : "rgba(255, 255, 255, 0.85)",
+    zIndex: 10,
+    borderRadius: "4px",
+  };
+}
 
 // =============================================================================
 // Component
@@ -112,9 +125,9 @@ function EmptyState() {
 /**
  * Loading overlay displayed during graph processing
  */
-function LoadingOverlay() {
+function LoadingOverlay({ isDarkMode }: { isDarkMode: boolean }) {
   return (
-    <div style={loadingOverlayStyles}>
+    <div style={getLoadingOverlayStyles(isDarkMode)}>
       <SpaceBetween direction="vertical" size="s" alignItems="center">
         <Spinner size="large" />
         <Box variant="p" color="text-body-secondary">
@@ -166,6 +179,9 @@ export function GraphCanvas({
   edges: initialEdges = [],
   isLoading = false,
 }: GraphCanvasProps) {
+  // Theme context
+  const { isDarkMode } = useTheme();
+
   // React Flow state management
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -176,16 +192,16 @@ export function GraphCanvas({
     setEdges(initialEdges);
   }, [initialNodes, initialEdges, setNodes, setEdges]);
 
-  // Default edge options
+  // Default edge options - theme aware
   const defaultEdgeOptions = useMemo(
     () => ({
       type: "smoothstep" as const,
       style: {
-        stroke: "#687078",
+        stroke: isDarkMode ? "#7d8998" : "#687078",
         strokeWidth: 1.5,
       },
     }),
-    []
+    [isDarkMode]
   );
 
   // Fit view options
@@ -200,8 +216,11 @@ export function GraphCanvas({
   // Determine if we should show the empty state
   const showEmptyState = initialNodes.length === 0 && !isLoading;
 
-  // Color mode for React Flow
-  const colorMode: ColorMode = "light";
+  // Color mode for React Flow - based on theme
+  const colorMode: ColorMode = isDarkMode ? "dark" : "light";
+
+  // Background dot color based on theme
+  const backgroundDotColor = isDarkMode ? "#414d5c" : "#d1d5db";
 
   return (
     <Container
@@ -222,7 +241,7 @@ export function GraphCanvas({
         {showEmptyState ? (
           <EmptyState />
         ) : (
-          <div style={{ ...flowContainerStyles, position: "relative" }}>
+          <div style={{ ...getFlowContainerStyles(isDarkMode), position: "relative" }}>
             <ReactFlow
               nodes={nodes}
               edges={edges}
@@ -247,7 +266,7 @@ export function GraphCanvas({
                 variant={BackgroundVariant.Dots}
                 gap={16}
                 size={1}
-                color="#d1d5db"
+                color={backgroundDotColor}
               />
               <Controls
                 showZoom={true}
@@ -257,7 +276,7 @@ export function GraphCanvas({
               />
               <MiniMap
                 nodeColor={getMiniMapNodeColor}
-                maskColor="rgba(0, 0, 0, 0.1)"
+                maskColor={isDarkMode ? "rgba(0, 0, 0, 0.3)" : "rgba(0, 0, 0, 0.1)"}
                 position="bottom-right"
                 pannable
                 zoomable
@@ -265,7 +284,7 @@ export function GraphCanvas({
             </ReactFlow>
 
             {/* Loading overlay */}
-            {isLoading && <LoadingOverlay />}
+            {isLoading && <LoadingOverlay isDarkMode={isDarkMode} />}
           </div>
         )}
       </div>

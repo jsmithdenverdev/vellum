@@ -1,7 +1,5 @@
 import { useState, useCallback } from "react";
 import AppLayout from "@cloudscape-design/components/app-layout";
-import TopNavigation from "@cloudscape-design/components/top-navigation";
-import SplitPanel from "@cloudscape-design/components/split-panel";
 
 import { InputPanel, GraphCanvas } from "@/components/organisms";
 import { parseTemplate } from "@/lib/parser";
@@ -13,6 +11,10 @@ function App() {
   const [templateInput, setTemplateInput] = useState("");
   const [error, setError] = useState<string | undefined>();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [navigationOpen, setNavigationOpen] = useState(true);
+
+  // Dark mode state - could be moved to context in the future
+  const [isDarkMode] = useState(false);
 
   // Graph state
   const [nodes, setNodes] = useState<CfnNode[]>([]);
@@ -50,49 +52,29 @@ function App() {
   }, [templateInput]);
 
   return (
-    <>
-      <TopNavigation
-        identity={{
-          href: "#",
-          title: "Vellum",
-        }}
-        utilities={[
-          {
-            type: "button",
-            iconName: "external",
-            text: "Documentation",
-            href: "https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/",
-            external: true,
-            externalIconAriaLabel: "(opens in a new tab)",
-          },
-        ]}
-      />
-      <AppLayout
-        navigationHide
-        toolsHide
-        contentType="default"
-        splitPanel={
-          <SplitPanel header="Template Input" hidePreferencesButton closeBehavior="hide">
-            <InputPanel
-              value={templateInput}
-              onChange={setTemplateInput}
-              onVisualize={handleVisualize}
-              error={error}
-              isLoading={isProcessing}
-            />
-          </SplitPanel>
-        }
-        splitPanelOpen={true}
-        splitPanelPreferences={{ position: "side" }}
-        content={
-          <GraphCanvas
-            nodes={nodes}
-            edges={edges}
-            isLoading={isProcessing}
-          />
-        }
-      />
-    </>
+    <AppLayout
+      navigation={
+        <InputPanel
+          value={templateInput}
+          onChange={setTemplateInput}
+          onVisualize={handleVisualize}
+          error={error}
+          isLoading={isProcessing}
+          isDarkMode={isDarkMode}
+        />
+      }
+      navigationOpen={navigationOpen}
+      onNavigationChange={({ detail }) => setNavigationOpen(detail.open)}
+      navigationWidth={400}
+      toolsHide
+      content={
+        <GraphCanvas
+          nodes={nodes}
+          edges={edges}
+          isLoading={isProcessing}
+        />
+      }
+    />
   );
 }
 

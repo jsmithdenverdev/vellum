@@ -21,6 +21,7 @@
     "@cloudscape-design/components": "^3.0.1167",
     "@cloudscape-design/global-styles": "^1.0.49",
     "@xyflow/react": "^12.10.0",
+    "ace-builds": "^1.43.5",
     "cloudformation-js-yaml-schema": "^0.4.2",
     "elkjs": "^0.11.0",
     "js-yaml": "^4.1.1",

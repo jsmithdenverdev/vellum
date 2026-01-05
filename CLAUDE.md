@@ -45,7 +45,7 @@ All changes reach `main` through pull requests. Netlify creates deploy previews 
 | UI System | @cloudscape-design/components |
 | Graph Engine | @xyflow/react |
 | Layout Engine | elkjs |
-| YAML Parsing | js-yaml + cloudformation-js-yaml-schema |
+| CFN Parsing | Native JSON (no external parser needed) |
 | Testing | Vitest + React Testing Library |
 | Documentation | Storybook |
 | Linting | ESLint + Prettier |
@@ -78,18 +78,26 @@ src/
 
 ### 1. Input Engine (`src/lib/parser.ts`)
 
-Parses CloudFormation YAML using `cloudformation-js-yaml-schema`.
-
-**Critical**: Standard `js-yaml` will crash on AWS intrinsic functions (`!Ref`, `!Sub`, `!GetAtt`). Always use the CloudFormation schema:
+Parses CloudFormation JSON templates with full type safety.
 
 ```typescript
-import yaml from 'js-yaml';
-import { schema } from 'cloudformation-js-yaml-schema';
+import { parseTemplate } from '@/lib/parser';
 
-const parsed = yaml.load(templateString, { schema });
+const result = parseTemplate(jsonString);
+if (result.success) {
+  console.log(result.template.Resources);
+} else {
+  console.error(result.error);
+}
 ```
 
-Display parse errors via Cloudscape Flashbar toast notifications.
+**Features:**
+- Discriminated union return type (`ParseResult`)
+- Validates template structure (Resources required, logical ID format, etc.)
+- Preserves intrinsic functions (`Ref`, `Fn::GetAtt`, `Fn::Sub`, etc.)
+- Utility functions: `getResourceIds()`, `getResourcesByType()`, `getResourceDependencies()`
+
+Display parse errors via Cloudscape Alert component in InputPanel.
 
 ### 2. Graph Transformation (`src/lib/graph-transformer.ts`)
 

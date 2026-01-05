@@ -10,8 +10,8 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import type { CfnNodeData } from "@/types/graph";
 import {
   getServiceInfo,
+  getIconUrl,
   extractResourceName,
-  type ServiceInfo,
 } from "@/lib/aws-icons";
 import { useTheme } from "@/hooks/useTheme";
 
@@ -102,24 +102,26 @@ function createNodeStyles(
   };
 }
 
-function createIconContainerStyles(
-  serviceInfo: ServiceInfo
-): React.CSSProperties {
+function createIconContainerStyles(hasIcon: boolean): React.CSSProperties {
   return {
     width: `${DESIGN_TOKENS.iconSize}px`,
     height: `${DESIGN_TOKENS.iconSize}px`,
     borderRadius: `${DESIGN_TOKENS.iconBorderRadius}px`,
-    backgroundColor: serviceInfo.color,
-    border: `1px solid ${serviceInfo.borderColor}`,
+    overflow: "hidden",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
-    color: "#ffffff",
-    fontSize: "12px",
-    fontWeight: 700,
-    letterSpacing: "0.3px",
-    textShadow: "0 1px 1px rgba(0, 0, 0, 0.2)",
+    // Fallback styling for when no icon is available
+    ...(hasIcon
+      ? {}
+      : {
+          backgroundColor: "#687078",
+          color: "#ffffff",
+          fontSize: "12px",
+          fontWeight: 700,
+          letterSpacing: "0.3px",
+        }),
   };
 }
 
@@ -210,6 +212,11 @@ function ResourceNodeComponent({
     [data.resourceType]
   );
 
+  const iconUrl = useMemo(
+    () => getIconUrl(data.resourceType),
+    [data.resourceType]
+  );
+
   const colors = useMemo(() => getThemeColors(isDarkMode), [isDarkMode]);
 
   // Memoize styles to prevent unnecessary object creation
@@ -219,8 +226,8 @@ function ResourceNodeComponent({
   );
 
   const iconContainerStyles = useMemo(
-    () => createIconContainerStyles(serviceInfo),
-    [serviceInfo]
+    () => createIconContainerStyles(!!iconUrl),
+    [iconUrl]
   );
 
   const contentStyles = useMemo(() => createContentStyles(), []);
@@ -251,9 +258,21 @@ function ResourceNodeComponent({
 
       {/* Node content */}
       <div style={nodeStyles}>
-        {/* Service icon with colored background */}
+        {/* Service icon */}
         <div style={iconContainerStyles} aria-label={serviceInfo.name}>
-          {serviceInfo.abbreviation}
+          {iconUrl ? (
+            <img
+              src={iconUrl}
+              alt={serviceInfo.name}
+              style={{
+                width: `${DESIGN_TOKENS.iconSize}px`,
+                height: `${DESIGN_TOKENS.iconSize}px`,
+                objectFit: "cover",
+              }}
+            />
+          ) : (
+            serviceInfo.abbreviation
+          )}
         </div>
 
         {/* Resource info */}

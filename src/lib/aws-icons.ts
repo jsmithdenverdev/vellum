@@ -35,8 +35,10 @@ export interface ServiceInfo {
   borderColor: string;
   /** Service category for grouping */
   category: ServiceCategory;
-  /** Short abbreviation for icon display */
+  /** Short abbreviation for icon display (fallback) */
   abbreviation: string;
+  /** Icon filename from aws-icons package */
+  iconFile?: string;
 }
 
 // =============================================================================
@@ -77,6 +79,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.orange.border,
     category: "compute",
     abbreviation: "EC2",
+    iconFile: "AmazonEC2",
   },
   Lambda: {
     name: "Lambda",
@@ -84,6 +87,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.orange.border,
     category: "compute",
     abbreviation: "LMB",
+    iconFile: "AWSLambda",
   },
   ECS: {
     name: "ECS",
@@ -91,6 +95,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.orange.border,
     category: "compute",
     abbreviation: "ECS",
+    iconFile: "AmazonElasticContainerService",
   },
   EKS: {
     name: "EKS",
@@ -98,6 +103,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.orange.border,
     category: "compute",
     abbreviation: "EKS",
+    iconFile: "AmazonElasticKubernetesService",
   },
   AutoScaling: {
     name: "Auto Scaling",
@@ -105,6 +111,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.orange.border,
     category: "compute",
     abbreviation: "ASG",
+    iconFile: "AmazonEC2AutoScaling",
   },
   Batch: {
     name: "Batch",
@@ -112,6 +119,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.orange.border,
     category: "compute",
     abbreviation: "BAT",
+    iconFile: "AWSBatch",
   },
   ElasticBeanstalk: {
     name: "Elastic Beanstalk",
@@ -119,6 +127,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.orange.border,
     category: "compute",
     abbreviation: "EB",
+    iconFile: "AWSElasticBeanstalk",
   },
 
   // Storage Services
@@ -128,6 +137,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.green.border,
     category: "storage",
     abbreviation: "S3",
+    iconFile: "AmazonSimpleStorageService",
   },
   EFS: {
     name: "EFS",
@@ -135,6 +145,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.green.border,
     category: "storage",
     abbreviation: "EFS",
+    iconFile: "AmazonElasticFileSystem",
   },
   EBS: {
     name: "EBS",
@@ -142,6 +153,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.green.border,
     category: "storage",
     abbreviation: "EBS",
+    iconFile: "AmazonElasticBlockStore",
   },
   Glacier: {
     name: "S3 Glacier",
@@ -149,6 +161,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.green.border,
     category: "storage",
     abbreviation: "GLC",
+    iconFile: "AmazonSimpleStorageServiceGlacier",
   },
   Backup: {
     name: "Backup",
@@ -156,6 +169,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.green.border,
     category: "storage",
     abbreviation: "BKP",
+    iconFile: "AWSBackup",
   },
 
   // Database Services
@@ -165,6 +179,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.blue.border,
     category: "database",
     abbreviation: "DDB",
+    iconFile: "AmazonDynamoDB",
   },
   RDS: {
     name: "RDS",
@@ -172,6 +187,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.blue.border,
     category: "database",
     abbreviation: "RDS",
+    iconFile: "AmazonRDS",
   },
   Aurora: {
     name: "Aurora",
@@ -179,6 +195,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.blue.border,
     category: "database",
     abbreviation: "AUR",
+    iconFile: "AmazonAurora",
   },
   ElastiCache: {
     name: "ElastiCache",
@@ -186,6 +203,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.blue.border,
     category: "database",
     abbreviation: "EC",
+    iconFile: "AmazonElastiCache",
   },
   Redshift: {
     name: "Redshift",
@@ -193,6 +211,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.blue.border,
     category: "database",
     abbreviation: "RS",
+    iconFile: "AmazonRedshift",
   },
   Neptune: {
     name: "Neptune",
@@ -200,6 +219,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.blue.border,
     category: "database",
     abbreviation: "NEP",
+    iconFile: "AmazonNeptune",
   },
   DocumentDB: {
     name: "DocumentDB",
@@ -207,6 +227,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.blue.border,
     category: "database",
     abbreviation: "DOC",
+    iconFile: "AmazonDocumentDB",
   },
 
   // Security & Identity Services
@@ -216,6 +237,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.red.border,
     category: "security",
     abbreviation: "IAM",
+    iconFile: "AWSIdentityandAccessManagement",
   },
   Cognito: {
     name: "Cognito",
@@ -223,6 +245,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.red.border,
     category: "security",
     abbreviation: "COG",
+    iconFile: "AmazonCognito",
   },
   SecretsManager: {
     name: "Secrets Manager",
@@ -230,6 +253,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.red.border,
     category: "security",
     abbreviation: "SM",
+    iconFile: "AWSSecretsManager",
   },
   KMS: {
     name: "KMS",
@@ -237,6 +261,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.red.border,
     category: "security",
     abbreviation: "KMS",
+    iconFile: "AWSKeyManagementService",
   },
   WAF: {
     name: "WAF",
@@ -244,6 +269,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.red.border,
     category: "security",
     abbreviation: "WAF",
+    iconFile: "AWSWAF",
   },
   WAFv2: {
     name: "WAF",
@@ -251,6 +277,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.red.border,
     category: "security",
     abbreviation: "WAF",
+    iconFile: "AWSWAF",
   },
   Shield: {
     name: "Shield",
@@ -258,6 +285,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.red.border,
     category: "security",
     abbreviation: "SHD",
+    iconFile: "AWSShield",
   },
   ACM: {
     name: "ACM",
@@ -265,6 +293,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.red.border,
     category: "security",
     abbreviation: "ACM",
+    iconFile: "AWSCertificateManager",
   },
   CertificateManager: {
     name: "ACM",
@@ -272,6 +301,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.red.border,
     category: "security",
     abbreviation: "ACM",
+    iconFile: "AWSCertificateManager",
   },
 
   // Networking Services
@@ -281,6 +311,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.purple.border,
     category: "networking",
     abbreviation: "VPC",
+    iconFile: "AmazonVirtualPrivateCloud",
   },
   CloudFront: {
     name: "CloudFront",
@@ -288,6 +319,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.purple.border,
     category: "networking",
     abbreviation: "CF",
+    iconFile: "AmazonCloudFront",
   },
   Route53: {
     name: "Route 53",
@@ -295,6 +327,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.purple.border,
     category: "networking",
     abbreviation: "R53",
+    iconFile: "AmazonRoute53",
   },
   ElasticLoadBalancing: {
     name: "ELB",
@@ -302,6 +335,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.purple.border,
     category: "networking",
     abbreviation: "ELB",
+    iconFile: "ElasticLoadBalancing",
   },
   ElasticLoadBalancingV2: {
     name: "ELB",
@@ -309,6 +343,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.purple.border,
     category: "networking",
     abbreviation: "ELB",
+    iconFile: "ElasticLoadBalancing",
   },
   APIGateway: {
     name: "API Gateway",
@@ -316,6 +351,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.pink.border,
     category: "integration",
     abbreviation: "API",
+    iconFile: "AmazonAPIGateway",
   },
   ApiGateway: {
     name: "API Gateway",
@@ -323,6 +359,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.pink.border,
     category: "integration",
     abbreviation: "API",
+    iconFile: "AmazonAPIGateway",
   },
   ApiGatewayV2: {
     name: "API Gateway",
@@ -330,6 +367,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.pink.border,
     category: "integration",
     abbreviation: "API",
+    iconFile: "AmazonAPIGateway",
   },
   DirectConnect: {
     name: "Direct Connect",
@@ -337,6 +375,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.purple.border,
     category: "networking",
     abbreviation: "DX",
+    iconFile: "AWSDirectConnect",
   },
   GlobalAccelerator: {
     name: "Global Accelerator",
@@ -344,6 +383,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.purple.border,
     category: "networking",
     abbreviation: "GA",
+    iconFile: "AWSGlobalAccelerator",
   },
 
   // Integration Services
@@ -353,6 +393,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.pink.border,
     category: "integration",
     abbreviation: "SNS",
+    iconFile: "AmazonSimpleNotificationService",
   },
   SQS: {
     name: "SQS",
@@ -360,6 +401,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.pink.border,
     category: "integration",
     abbreviation: "SQS",
+    iconFile: "AmazonSimpleQueueService",
   },
   StepFunctions: {
     name: "Step Functions",
@@ -367,6 +409,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.pink.border,
     category: "integration",
     abbreviation: "SFN",
+    iconFile: "AWSStepFunctions",
   },
   EventBridge: {
     name: "EventBridge",
@@ -374,6 +417,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.pink.border,
     category: "integration",
     abbreviation: "EB",
+    iconFile: "AmazonEventBridge",
   },
   Events: {
     name: "EventBridge",
@@ -381,6 +425,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.pink.border,
     category: "integration",
     abbreviation: "EVT",
+    iconFile: "AmazonEventBridge",
   },
   AppSync: {
     name: "AppSync",
@@ -388,6 +433,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.pink.border,
     category: "integration",
     abbreviation: "AS",
+    iconFile: "AWSAppSync",
   },
 
   // Management & Governance
@@ -397,6 +443,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.managementPink.border,
     category: "management",
     abbreviation: "CFN",
+    iconFile: "AWSCloudFormation",
   },
   CloudWatch: {
     name: "CloudWatch",
@@ -404,6 +451,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.managementPink.border,
     category: "management",
     abbreviation: "CW",
+    iconFile: "AmazonCloudWatch",
   },
   Logs: {
     name: "CloudWatch Logs",
@@ -411,6 +459,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.managementPink.border,
     category: "management",
     abbreviation: "LOG",
+    iconFile: "AmazonCloudWatch",
   },
   CloudTrail: {
     name: "CloudTrail",
@@ -418,6 +467,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.managementPink.border,
     category: "management",
     abbreviation: "CT",
+    iconFile: "AWSCloudTrail",
   },
   Config: {
     name: "Config",
@@ -425,6 +475,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.managementPink.border,
     category: "management",
     abbreviation: "CFG",
+    iconFile: "AWSConfig",
   },
   SSM: {
     name: "Systems Manager",
@@ -432,6 +483,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.managementPink.border,
     category: "management",
     abbreviation: "SSM",
+    iconFile: "AWSSystemsManager",
   },
   ServiceCatalog: {
     name: "Service Catalog",
@@ -439,6 +491,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.managementPink.border,
     category: "management",
     abbreviation: "SC",
+    iconFile: "AWSServiceCatalog",
   },
 
   // Analytics
@@ -448,6 +501,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.purple.border,
     category: "analytics",
     abbreviation: "KIN",
+    iconFile: "AmazonKinesis",
   },
   Athena: {
     name: "Athena",
@@ -455,6 +509,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.purple.border,
     category: "analytics",
     abbreviation: "ATH",
+    iconFile: "AmazonAthena",
   },
   Glue: {
     name: "Glue",
@@ -462,6 +517,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.purple.border,
     category: "analytics",
     abbreviation: "GLU",
+    iconFile: "AWSGlue",
   },
   EMR: {
     name: "EMR",
@@ -469,6 +525,7 @@ const SERVICE_DEFINITIONS: Record<string, ServiceInfo> = {
     borderColor: AWS_COLORS.purple.border,
     category: "analytics",
     abbreviation: "EMR",
+    iconFile: "AmazonEMR",
   },
 
   // Custom/Other
@@ -580,4 +637,23 @@ export function getAllServiceDefinitions(): Record<string, ServiceInfo> {
  */
 export function getAWSColors(): typeof AWS_COLORS {
   return AWS_COLORS;
+}
+
+/**
+ * Gets the icon URL for an AWS service
+ *
+ * @param resourceType - The CloudFormation resource type (e.g., "AWS::Lambda::Function")
+ * @returns The URL to the SVG icon, or undefined if no icon is available
+ *
+ * @example
+ * const iconUrl = getIconUrl("AWS::Lambda::Function");
+ * // "/aws-icons/AWSLambda.svg"
+ */
+export function getIconUrl(resourceType: string): string | undefined {
+  const serviceInfo = getServiceInfo(resourceType);
+  if (serviceInfo.iconFile) {
+    // Icons are copied to public/aws-icons during build
+    return `/aws-icons/${serviceInfo.iconFile}.svg`;
+  }
+  return undefined;
 }

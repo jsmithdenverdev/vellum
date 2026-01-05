@@ -140,3 +140,6 @@ vite.config.ts.timestamp-*
 
 *storybook.log
 storybook-static
+
+# Generated AWS icons (copied from node_modules during build)
+public/aws-icons

@@ -12,6 +12,29 @@ npm run test         # Run tests
 npm run lint         # Lint and format
 ```
 
+## Git Workflow
+
+**All development must happen on feature branches. Direct pushes to `main` are forbidden.**
+
+```bash
+# Start new work
+git checkout -b feature/my-feature
+
+# When ready, push and create PR
+git push -u origin feature/my-feature
+```
+
+### Branch Naming
+
+- `feature/` — New features (e.g., `feature/graph-layout`)
+- `fix/` — Bug fixes (e.g., `fix/yaml-parsing-error`)
+- `chore/` — Maintenance tasks (e.g., `chore/update-deps`)
+- `docs/` — Documentation only (e.g., `docs/api-reference`)
+
+### Merge Strategy
+
+All changes reach `main` through pull requests. Netlify creates deploy previews for each PR.
+
 ## Tech Stack
 
 | Category | Technology |

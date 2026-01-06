@@ -4,7 +4,6 @@ import CodeEditor from "@cloudscape-design/components/code-editor";
 
 import type { CodeEditorProps } from "@cloudscape-design/components/code-editor";
 import Header from "@cloudscape-design/components/header";
-import SpaceBetween from "@cloudscape-design/components/space-between";
 
 import ace from "ace-builds";
 import "ace-builds/src-noconflict/mode-json";
@@ -41,6 +40,27 @@ const i18nStrings: CodeEditorProps.I18nStrings = {
   preferencesModalDarkThemes: "Dark themes",
 };
 
+// Styles
+const containerStyles: React.CSSProperties = {
+  height: "100%",
+  display: "flex",
+  flexDirection: "column",
+  padding: "16px",
+  gap: "16px",
+};
+
+const editorContainerStyles: React.CSSProperties = {
+  flex: 1,
+  minHeight: 0, // Important for flex children to shrink properly
+  height: "calc(100vh - 220px)", // Explicit height for CodeEditor
+};
+
+const footerStyles: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "12px",
+};
+
 export function InputPanel({
   value,
   onChange,
@@ -56,32 +76,35 @@ export function InputPanel({
   };
 
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "16px" }}>
-      <SpaceBetween direction="vertical" size="m">
-        <Header
-          variant="h2"
-          description="Paste your CloudFormation JSON or YAML template below"
-        >
-          Template Input
-        </Header>
+    <div style={containerStyles}>
+      {/* Header */}
+      <Header
+        variant="h2"
+        description="Paste your CloudFormation JSON or YAML template below"
+      >
+        Template Input
+      </Header>
 
-        <div style={{ flex: 1, minHeight: "500px" }}>
-          <CodeEditor
-            ace={ace}
-            language="json"
-            value={value}
-            onDelayedChange={({ detail }) => onChange(detail.value)}
-            onPreferencesChange={handlePreferencesChange}
-            preferences={{ theme: editorTheme, wrapLines: true }}
-            loading={isLoading}
-            i18nStrings={i18nStrings}
-            themes={{
-              light: ["dawn"],
-              dark: ["tomorrow_night"],
-            }}
-          />
-        </div>
+      {/* Editor - takes remaining space */}
+      <div style={editorContainerStyles}>
+        <CodeEditor
+          ace={ace}
+          language="json"
+          value={value}
+          onDelayedChange={({ detail }) => onChange(detail.value)}
+          onPreferencesChange={handlePreferencesChange}
+          preferences={{ theme: editorTheme, wrapLines: true }}
+          loading={isLoading}
+          i18nStrings={i18nStrings}
+          themes={{
+            light: ["dawn"],
+            dark: ["tomorrow_night"],
+          }}
+        />
+      </div>
 
+      {/* Footer - error and button */}
+      <div style={footerStyles}>
         {error && (
           <Alert type="error" header="Template Error">
             {error}
@@ -98,7 +121,7 @@ export function InputPanel({
             Visualize
           </Button>
         </div>
-      </SpaceBetween>
+      </div>
     </div>
   );
 }

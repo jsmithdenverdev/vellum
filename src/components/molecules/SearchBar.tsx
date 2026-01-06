@@ -73,6 +73,7 @@ const filterTagsStyles: React.CSSProperties = {
   flexWrap: "wrap",
   gap: "4px",
   flex: 1,
+  marginRight: "12px",
 };
 
 const matchCountStyles: React.CSSProperties = {

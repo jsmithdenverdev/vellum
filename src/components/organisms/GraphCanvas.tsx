@@ -506,9 +506,6 @@ function getMiniMapNodeColor(node: Node): string {
   return serviceColors[service] ?? "#687078";
 }
 
-// Mobile breakpoint (768px is common tablet/mobile breakpoint)
-const MOBILE_BREAKPOINT = 768;
-
 /**
  * GraphCanvas component for visualizing CloudFormation dependencies
  */
@@ -521,22 +518,6 @@ export function GraphCanvas({
 }: GraphCanvasProps) {
   // Theme context
   const { isDarkMode } = useTheme();
-
-  // Track mobile viewport for responsive behavior
-  const [isMobile, setIsMobile] = useState(false);
-
-  // Listen for window resize to update mobile state
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-    };
-
-    // Set initial value
-    handleResize();
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
 
   // Track hovered edge for label display
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
@@ -733,16 +714,13 @@ export function GraphCanvas({
                   matchingNodeIds={matchingNodeIds}
                 />
               </Panel>
-              {/* Hide MiniMap on mobile to save screen space */}
-              {!isMobile && (
-                <MiniMap
-                  nodeColor={getMiniMapNodeColor}
-                  maskColor={isDarkMode ? "rgba(0, 0, 0, 0.3)" : "rgba(0, 0, 0, 0.1)"}
-                  position="bottom-right"
-                  pannable
-                  zoomable
-                />
-              )}
+              <MiniMap
+                nodeColor={getMiniMapNodeColor}
+                maskColor={isDarkMode ? "rgba(0, 0, 0, 0.3)" : "rgba(0, 0, 0, 0.1)"}
+                position="bottom-right"
+                pannable
+                zoomable
+              />
             </ReactFlow>
 
             {/* Loading overlay */}

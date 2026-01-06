@@ -41,28 +41,6 @@ const i18nStrings: CodeEditorProps.I18nStrings = {
   preferencesModalDarkThemes: "Dark themes",
 };
 
-// Styles
-const containerStyles: React.CSSProperties = {
-  height: "100%",
-  display: "flex",
-  flexDirection: "column",
-  padding: "16px",
-  gap: "16px",
-  boxSizing: "border-box",
-};
-
-const editorContainerStyles: React.CSSProperties = {
-  flex: 1,
-  minHeight: 0,
-};
-
-const footerStyles: React.CSSProperties = {
-  flexShrink: 0,
-  display: "flex",
-  flexDirection: "column",
-  gap: "12px",
-};
-
 export function InputPanel({
   value,
   onChange,
@@ -72,23 +50,32 @@ export function InputPanel({
 }: InputPanelProps) {
   const { isDarkMode } = useTheme();
   const editorTheme = isDarkMode ? "tomorrow_night" : "dawn";
-  const containerRef = useRef<HTMLDivElement>(null);
+  const editorAreaRef = useRef<HTMLDivElement>(null);
   const [editorHeight, setEditorHeight] = useState(400);
 
-  // Calculate editor height based on container
+  // Calculate editor height based on editor area container
   useEffect(() => {
     const updateHeight = () => {
-      if (containerRef.current) {
-        const containerHeight = containerRef.current.clientHeight;
-        // Subtract header (~80px), footer (~60px), gaps (32px), padding (32px)
-        const availableHeight = containerHeight - 180;
+      if (editorAreaRef.current) {
+        // Get the available height in the editor area, minus button row (~50px)
+        const availableHeight = editorAreaRef.current.clientHeight - 60;
         setEditorHeight(Math.max(200, availableHeight));
       }
     };
 
     updateHeight();
     window.addEventListener("resize", updateHeight);
-    return () => window.removeEventListener("resize", updateHeight);
+
+    // Also observe the container for size changes
+    const resizeObserver = new ResizeObserver(updateHeight);
+    if (editorAreaRef.current) {
+      resizeObserver.observe(editorAreaRef.current);
+    }
+
+    return () => {
+      window.removeEventListener("resize", updateHeight);
+      resizeObserver.disconnect();
+    };
   }, []);
 
   const handlePreferencesChange: CodeEditorProps["onPreferencesChange"] = () => {
@@ -100,44 +87,68 @@ export function InputPanel({
   };
 
   return (
-    <div ref={containerRef} style={containerStyles}>
-      {/* Header */}
-      <Header
-        variant="h2"
-        description="Paste your CloudFormation JSON or YAML template below"
-      >
-        Template Input
-      </Header>
-
-      {/* Editor - takes remaining space */}
-      <div style={editorContainerStyles}>
-        <CodeEditor
-          ace={ace}
-          language="json"
-          value={value}
-          onDelayedChange={({ detail }) => onChange(detail.value)}
-          onPreferencesChange={handlePreferencesChange}
-          onEditorContentResize={handleEditorResize}
-          preferences={{ theme: editorTheme, wrapLines: true }}
-          loading={isLoading}
-          i18nStrings={i18nStrings}
-          editorContentHeight={editorHeight}
-          themes={{
-            light: ["dawn"],
-            dark: ["tomorrow_night"],
-          }}
-        />
+    <div
+      style={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        padding: "16px",
+        boxSizing: "border-box",
+        overflow: "hidden",
+      }}
+    >
+      {/* Header - fixed height */}
+      <div style={{ flexShrink: 0, marginBottom: "16px" }}>
+        <Header
+          variant="h2"
+          description="Paste your CloudFormation JSON or YAML template below"
+        >
+          Template Input
+        </Header>
       </div>
 
-      {/* Footer - error and button */}
-      <div style={footerStyles}>
-        {error && (
+      {/* Error alert - if present */}
+      {error && (
+        <div style={{ flexShrink: 0, marginBottom: "16px" }}>
           <Alert type="error" header="Template Error">
             {error}
           </Alert>
-        )}
+        </div>
+      )}
 
-        <div style={{ textAlign: "right" }}>
+      {/* Editor area - flex grows to fill remaining space */}
+      <div
+        ref={editorAreaRef}
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+          overflow: "hidden",
+        }}
+      >
+        {/* Editor - grows within editor area */}
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <CodeEditor
+            ace={ace}
+            language="json"
+            value={value}
+            onDelayedChange={({ detail }) => onChange(detail.value)}
+            onPreferencesChange={handlePreferencesChange}
+            onEditorContentResize={handleEditorResize}
+            preferences={{ theme: editorTheme, wrapLines: true }}
+            loading={isLoading}
+            i18nStrings={i18nStrings}
+            editorContentHeight={editorHeight}
+            themes={{
+              light: ["dawn"],
+              dark: ["tomorrow_night"],
+            }}
+          />
+        </div>
+
+        {/* Button - fixed at bottom of editor area */}
+        <div style={{ flexShrink: 0, textAlign: "right", marginTop: "16px" }}>
           <Button
             variant="primary"
             onClick={onVisualize}

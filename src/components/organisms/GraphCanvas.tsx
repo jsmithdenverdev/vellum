@@ -523,15 +523,16 @@ export function GraphCanvas({
   const { isDarkMode } = useTheme();
 
   // Track mobile viewport for responsive behavior
-  const [isMobile, setIsMobile] = useState(
-    typeof window !== "undefined" ? window.innerWidth < MOBILE_BREAKPOINT : false
-  );
+  const [isMobile, setIsMobile] = useState(false);
 
   // Listen for window resize to update mobile state
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
     };
+
+    // Set initial value
+    handleResize();
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);

@@ -5,7 +5,7 @@
  * CloudFormation resource dependencies.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import {
   ReactFlow,
   Background,
@@ -187,7 +187,7 @@ export function GraphCanvas({
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
   // Update nodes/edges when props change
-  useMemo(() => {
+  useEffect(() => {
     setNodes(initialNodes);
     setEdges(initialEdges);
   }, [initialNodes, initialEdges, setNodes, setEdges]);
@@ -195,7 +195,7 @@ export function GraphCanvas({
   // Default edge options - theme aware
   const defaultEdgeOptions = useMemo(
     () => ({
-      type: "smoothstep" as const,
+      type: "default" as const, // Bezier curve
       style: {
         stroke: isDarkMode ? "#7d8998" : "#687078",
         strokeWidth: 1.5,

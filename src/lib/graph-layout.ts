@@ -1,12 +1,11 @@
 /**
  * Graph Layout
  *
- * Applies automatic layout to CloudFormation graph nodes using ELK.js.
- * Calculates optimal node positions for a top-to-bottom dependency flow.
+ * Applies automatic layout to CloudFormation graph nodes using Dagre.
+ * Calculates optimal node positions for a left-to-right dependency flow.
  */
 
-import ELK from "elkjs/lib/elk.bundled.js";
-import type { ElkNode, ElkExtendedEdge, LayoutOptions } from "elkjs";
+import Dagre from "@dagrejs/dagre";
 
 import type { CfnNode, CfnEdge } from "@/types/graph";
 
@@ -14,43 +13,22 @@ import type { CfnNode, CfnEdge } from "@/types/graph";
 // Constants
 // =============================================================================
 
-/** Default width for resource nodes */
-const DEFAULT_NODE_WIDTH = 200;
+/** Width for resource nodes (matches ResourceNode component) */
+const NODE_WIDTH = 220;
 
-/** Default height for resource nodes */
-const DEFAULT_NODE_HEIGHT = 80;
-
-/** Horizontal spacing between nodes */
-const NODE_SPACING_HORIZONTAL = 100;
-
-/** Vertical spacing between nodes */
-const NODE_SPACING_VERTICAL = 80;
-
-// =============================================================================
-// ELK Configuration
-// =============================================================================
-
-/**
- * ELK layout options for layered top-to-bottom layout
- */
-const layoutOptions: LayoutOptions = {
-  "elk.algorithm": "layered",
-  "elk.direction": "DOWN",
-  "elk.spacing.nodeNode": String(NODE_SPACING_HORIZONTAL),
-  "elk.layered.spacing.nodeNodeBetweenLayers": String(NODE_SPACING_VERTICAL),
-  "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
-  "elk.edgeRouting": "ORTHOGONAL",
-};
+/** Height for resource nodes */
+const NODE_HEIGHT = 60;
 
 // =============================================================================
 // Layout Function
 // =============================================================================
 
 /**
- * Applies ELK.js layout to calculate node positions.
+ * Applies Dagre layout to calculate node positions.
  *
- * Uses the 'layered' algorithm with top-to-bottom (DOWN) direction
- * to create a clear dependency hierarchy visualization.
+ * Uses left-to-right (LR) direction to create a clear dependency
+ * hierarchy visualization where dependencies appear on the left
+ * and consumers appear on the right.
  *
  * @param nodes - The graph nodes to layout
  * @param edges - The graph edges connecting nodes
@@ -59,62 +37,56 @@ const layoutOptions: LayoutOptions = {
  * @example
  * ```typescript
  * const graph = transformToGraph(template);
- * const layoutedNodes = await applyElkLayout(graph.nodes, graph.edges);
+ * const layoutedNodes = applyDagreLayout(graph.nodes, graph.edges);
  * // layoutedNodes now have calculated x, y positions
  * ```
  */
-export async function applyElkLayout(
+export function applyDagreLayout(
   nodes: CfnNode[],
   edges: CfnEdge[]
-): Promise<CfnNode[]> {
+): CfnNode[] {
   // Handle empty graph
   if (nodes.length === 0) {
     return [];
   }
 
-  const elk = new ELK();
+  // Create a new directed graph
+  const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
 
-  // Convert nodes to ELK format
-  const elkNodes: ElkNode[] = nodes.map((node) => ({
-    id: node.id,
-    width: DEFAULT_NODE_WIDTH,
-    height: DEFAULT_NODE_HEIGHT,
-  }));
+  // Configure the graph layout
+  g.setGraph({
+    rankdir: "LR", // Left-to-right (matches our node handles)
+    nodesep: 50, // Vertical spacing between nodes in same rank
+    ranksep: 100, // Horizontal spacing between ranks (layers)
+    marginx: 20,
+    marginy: 20,
+  });
 
-  // Convert edges to ELK format
-  const elkEdges: ElkExtendedEdge[] = edges.map((edge) => ({
-    id: edge.id,
-    sources: [edge.source],
-    targets: [edge.target],
-  }));
+  // Add nodes to the graph
+  nodes.forEach((node) => {
+    g.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+  });
 
-  // Create ELK graph
-  const elkGraph: ElkNode = {
-    id: "root",
-    layoutOptions,
-    children: elkNodes,
-    edges: elkEdges,
-  };
+  // Add edges to the graph
+  // Edges go Dependency → Consumer, and Dagre places sources in earlier ranks.
+  // This naturally produces left-to-right layout (dependencies on left).
+  edges.forEach((edge) => {
+    g.setEdge(edge.source, edge.target);
+  });
 
-  // Apply layout
-  const layoutedGraph = await elk.layout(elkGraph);
+  // Run the layout algorithm
+  Dagre.layout(g);
 
-  // Create a map of node positions from ELK result
-  const positionMap = new Map<string, { x: number; y: number }>();
-
-  for (const elkNode of layoutedGraph.children ?? []) {
-    positionMap.set(elkNode.id, {
-      x: elkNode.x ?? 0,
-      y: elkNode.y ?? 0,
-    });
-  }
-
-  // Return new nodes with updated positions
+  // Map positions back to nodes
+  // Dagre uses center coordinates, React Flow uses top-left
   return nodes.map((node) => {
-    const position = positionMap.get(node.id) ?? { x: 0, y: 0 };
+    const dagreNode = g.node(node.id);
     return {
       ...node,
-      position,
+      position: {
+        x: dagreNode.x - NODE_WIDTH / 2,
+        y: dagreNode.y - NODE_HEIGHT / 2,
+      },
     };
   });
 }
@@ -122,18 +94,18 @@ export async function applyElkLayout(
 /**
  * Applies layout to a graph and returns the complete updated graph data.
  *
- * This is a convenience function that wraps applyElkLayout and returns
+ * This is a convenience function that wraps applyDagreLayout and returns
  * both nodes and edges together.
  *
  * @param nodes - The graph nodes to layout
  * @param edges - The graph edges connecting nodes
  * @returns Updated graph data with positioned nodes
  */
-export async function layoutGraph(
+export function layoutGraph(
   nodes: CfnNode[],
   edges: CfnEdge[]
-): Promise<{ nodes: CfnNode[]; edges: CfnEdge[] }> {
-  const layoutedNodes = await applyElkLayout(nodes, edges);
+): { nodes: CfnNode[]; edges: CfnEdge[] } {
+  const layoutedNodes = applyDagreLayout(nodes, edges);
   return {
     nodes: layoutedNodes,
     edges,

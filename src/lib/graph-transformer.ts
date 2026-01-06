@@ -170,10 +170,11 @@ function createEdgeId(sourceId: string, targetId: string, refType: RefType, attr
 
 /**
  * Creates a CfnEdge from a detected reference.
- * Edge direction: source (consumer) -> target (dependency)
+ * Edge direction: source (dependency) -> target (consumer)
+ * This creates left-to-right visual flow matching AWS conventions.
  */
 function createEdge(
-  sourceId: string,
+  consumerId: string,
   reference: DetectedReference
 ): CfnEdge {
   const edgeData: CfnEdgeData = {
@@ -184,10 +185,11 @@ function createEdge(
     edgeData.attribute = reference.attribute;
   }
 
+  // Edge goes FROM dependency TO consumer (left-to-right visual flow)
   return {
-    id: createEdgeId(sourceId, reference.targetId, reference.refType, reference.attribute),
-    source: sourceId,
-    target: reference.targetId,
+    id: createEdgeId(reference.targetId, consumerId, reference.refType, reference.attribute),
+    source: reference.targetId,
+    target: consumerId,
     data: edgeData,
   };
 }
@@ -205,10 +207,10 @@ function createEdge(
  * - Fn::GetAtt intrinsic functions
  * - DependsOn resource attributes
  *
- * Edge direction follows Consumer -> Dependency (the resource using the
- * reference points to the resource being referenced).
+ * Edge direction follows Dependency -> Consumer (arrows point from the
+ * referenced resource to the resource using it, creating left-to-right flow).
  *
- * All nodes are initialized at position (0, 0). Use applyElkLayout to
+ * All nodes are initialized at position (0, 0). Use applyDagreLayout to
  * calculate actual positions.
  *
  * @param template - The parsed CloudFormation template
@@ -233,7 +235,7 @@ function createEdge(
  *
  * const graph = transformToGraph(template);
  * // graph.nodes: [MyFunction node, MyRole node]
- * // graph.edges: [MyFunction -> MyRole (GetAtt)]
+ * // graph.edges: [MyRole -> MyFunction (GetAtt)] - dependency points to consumer
  * ```
  */
 export function transformToGraph(template: CloudFormationTemplate): GraphData {

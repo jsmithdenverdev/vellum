@@ -4,7 +4,7 @@ import AppLayout from "@cloudscape-design/components/app-layout";
 import { InputPanel, GraphCanvas } from "@/components/organisms";
 import { parseTemplate } from "@/lib/parser";
 import { transformToGraph } from "@/lib/graph-transformer";
-import { applyElkLayout } from "@/lib/graph-layout";
+import { applyDagreLayout } from "@/lib/graph-layout";
 import type { CfnNode, CfnEdge } from "@/types/graph";
 
 function App() {
@@ -38,7 +38,7 @@ function App() {
       const graphData = transformToGraph(parseResult.template);
 
       // Step 3: Apply layout
-      const layoutedNodes = await applyElkLayout(graphData.nodes, graphData.edges);
+      const layoutedNodes = applyDagreLayout(graphData.nodes, graphData.edges);
 
       // Step 4: Update state
       setNodes(layoutedNodes);

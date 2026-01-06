@@ -5,19 +5,26 @@
  * CloudFormation resource dependencies.
  */
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useCallback } from "react";
 import {
   ReactFlow,
   Background,
   Controls,
   MiniMap,
+  Panel,
   useNodesState,
   useEdgesState,
+  getNodesBounds,
+  getViewportForBounds,
+  useReactFlow,
   type Node,
   type NodeTypes,
   type ColorMode,
+  type NodeMouseHandler,
   BackgroundVariant,
 } from "@xyflow/react";
+import { toSvg } from "html-to-image";
+import Button from "@cloudscape-design/components/button";
 import Box from "@cloudscape-design/components/box";
 import Container from "@cloudscape-design/components/container";
 import Header from "@cloudscape-design/components/header";
@@ -43,6 +50,10 @@ export interface GraphCanvasProps {
   edges?: CfnEdge[];
   /** Whether the graph is currently being processed */
   isLoading?: boolean;
+  /** Callback when a node is clicked */
+  onNodeClick?: (nodeData: CfnNodeData) => void;
+  /** Callback when a node is double-clicked */
+  onNodeDoubleClick?: (nodeData: CfnNodeData) => void;
 }
 
 // =============================================================================
@@ -139,6 +150,67 @@ function LoadingOverlay({ isDarkMode }: { isDarkMode: boolean }) {
 }
 
 /**
+ * Export button for downloading graph as SVG
+ * Must be rendered inside ReactFlow to access the hook
+ */
+function ExportButton() {
+  const { getNodes } = useReactFlow();
+
+  const handleExport = useCallback(async () => {
+    // Get the viewport element
+    const viewport = document.querySelector(".react-flow__viewport") as HTMLElement;
+    if (!viewport) {
+      console.error("Could not find React Flow viewport");
+      return;
+    }
+
+    try {
+      // Get bounds for proper sizing
+      const nodes = getNodes();
+      const bounds = getNodesBounds(nodes);
+      const padding = 50;
+      const width = bounds.width + padding * 2;
+      const height = bounds.height + padding * 2;
+
+      // Calculate viewport transform for export
+      const viewport_transform = getViewportForBounds(
+        bounds,
+        width,
+        height,
+        0.5,
+        2,
+        padding
+      );
+
+      const svg = await toSvg(viewport, {
+        backgroundColor: "transparent",
+        width,
+        height,
+        style: {
+          width: `${width}px`,
+          height: `${height}px`,
+          transform: `translate(${viewport_transform.x}px, ${viewport_transform.y}px) scale(${viewport_transform.zoom})`,
+        },
+      });
+
+      // Create download link
+      const link = document.createElement("a");
+      link.href = svg;
+      link.download = "cloudformation-graph.svg";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Failed to export SVG:", error);
+    }
+  }, [getNodes]);
+
+  return (
+    <Button iconName="download" variant="icon" onClick={handleExport} ariaLabel="Export as SVG" />
+  );
+}
+
+/**
  * Extracts the AWS service name from a resource type
  */
 function extractService(resourceType: string): string {
@@ -178,6 +250,8 @@ export function GraphCanvas({
   nodes: initialNodes = [],
   edges: initialEdges = [],
   isLoading = false,
+  onNodeClick,
+  onNodeDoubleClick,
 }: GraphCanvasProps) {
   // Theme context
   const { isDarkMode } = useTheme();
@@ -222,6 +296,26 @@ export function GraphCanvas({
   // Background dot color based on theme
   const backgroundDotColor = isDarkMode ? "#414d5c" : "#d1d5db";
 
+  // Handle node click
+  const handleNodeClick: NodeMouseHandler = useCallback(
+    (_event, node) => {
+      if (onNodeClick && node.data) {
+        onNodeClick(node.data as CfnNodeData);
+      }
+    },
+    [onNodeClick]
+  );
+
+  // Handle node double-click
+  const handleNodeDoubleClick: NodeMouseHandler = useCallback(
+    (_event, node) => {
+      if (onNodeDoubleClick && node.data) {
+        onNodeDoubleClick(node.data as CfnNodeData);
+      }
+    },
+    [onNodeDoubleClick]
+  );
+
   return (
     <Container
       header={
@@ -247,6 +341,8 @@ export function GraphCanvas({
               edges={edges}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
+              onNodeClick={handleNodeClick}
+              onNodeDoubleClick={handleNodeDoubleClick}
               nodeTypes={nodeTypes}
               defaultEdgeOptions={defaultEdgeOptions}
               fitView
@@ -274,6 +370,9 @@ export function GraphCanvas({
                 showInteractive={false}
                 position="top-right"
               />
+              <Panel position="top-left">
+                <ExportButton />
+              </Panel>
               <MiniMap
                 nodeColor={getMiniMapNodeColor}
                 maskColor={isDarkMode ? "rgba(0, 0, 0, 0.3)" : "rgba(0, 0, 0, 0.1)"}

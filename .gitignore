@@ -143,3 +143,9 @@ storybook-static
 
 # Generated AWS icons (copied from node_modules during build)
 public/aws-icons
+
+# Generated icon cache for SVG rendering (created at build time)
+src/lib/icon-cache.json
+
+# Local Netlify folder
+.netlify

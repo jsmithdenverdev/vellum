@@ -10,9 +10,9 @@ import type {
   CfnResource,
   CfnValue,
   GetAttFunction,
-} from "@/types/cloudformation";
-import { isRef, isGetAtt } from "@/types/cloudformation";
-import type { CfnNode, CfnEdge, CfnEdgeData, GraphData, RefType } from "@/types/graph";
+} from "../types/cloudformation";
+import { isRef, isGetAtt } from "../types/cloudformation";
+import type { CfnNode, CfnEdge, CfnEdgeData, GraphData, RefType } from "../types/graph";
 
 // =============================================================================
 // Internal Types

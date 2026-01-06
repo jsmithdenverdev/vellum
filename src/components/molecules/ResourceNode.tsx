@@ -136,19 +136,7 @@ function createContentStyles(): React.CSSProperties {
   };
 }
 
-function createLabelStyles(colors: ThemeColors): React.CSSProperties {
-  return {
-    fontWeight: 600,
-    color: colors.textPrimary,
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    lineHeight: 1.3,
-    fontSize: `${DESIGN_TOKENS.fontSizePrimary}px`,
-  };
-}
-
-function createTypeStyles(colors: ThemeColors): React.CSSProperties {
+function createTypeLabelStyles(colors: ThemeColors): React.CSSProperties {
   return {
     fontSize: `${DESIGN_TOKENS.fontSizeSecondary}px`,
     color: colors.textSecondary,
@@ -157,6 +145,19 @@ function createTypeStyles(colors: ThemeColors): React.CSSProperties {
     textOverflow: "ellipsis",
     lineHeight: 1.2,
     fontWeight: 400,
+    textTransform: "capitalize",
+  };
+}
+
+function createResourceNameStyles(colors: ThemeColors): React.CSSProperties {
+  return {
+    fontWeight: 600,
+    color: colors.textPrimary,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    lineHeight: 1.3,
+    fontSize: `${DESIGN_TOKENS.fontSizePrimary}px`,
   };
 }
 
@@ -185,13 +186,13 @@ type CfnResourceNode = Node<CfnNodeData, "cfnResource">;
  * Custom React Flow node component for CloudFormation resources.
  * Styled to match AWS Infrastructure Composer design.
  *
- * Structure:
+ * Structure (matches AWS Infrastructure Composer):
  * ```
  * +----------------------------------+
- * | +------+                         |
- * | | icon |  MyFunction             |
- * | |      |  AWS::Lambda::Function  |
- * | +------+                         |
+ * |                        +------+  |
+ * |  Lambda Function       | icon |  |
+ * |  MyFunction            |      |  |
+ * |                        +------+  |
  * +----------------------------------+
  * ```
  */
@@ -232,9 +233,9 @@ function ResourceNodeComponent({
 
   const contentStyles = useMemo(() => createContentStyles(), []);
 
-  const labelStyles = useMemo(() => createLabelStyles(colors), [colors]);
+  const typeLabelStyles = useMemo(() => createTypeLabelStyles(colors), [colors]);
 
-  const typeStyles = useMemo(() => createTypeStyles(colors), [colors]);
+  const resourceNameStyles = useMemo(() => createResourceNameStyles(colors), [colors]);
 
   const leftHandleStyles = useMemo(
     () => createHandleStyles(colors, "left"),
@@ -258,7 +259,17 @@ function ResourceNodeComponent({
 
       {/* Node content */}
       <div style={nodeStyles}>
-        {/* Service icon */}
+        {/* Resource info (left side) */}
+        <div style={contentStyles}>
+          <div style={typeLabelStyles} title={data.resourceType}>
+            {resourceName}
+          </div>
+          <div style={resourceNameStyles} title={data.logicalId}>
+            {data.logicalId}
+          </div>
+        </div>
+
+        {/* Service icon (right side) */}
         <div style={iconContainerStyles} aria-label={serviceInfo.name}>
           {iconUrl ? (
             <img
@@ -273,16 +284,6 @@ function ResourceNodeComponent({
           ) : (
             serviceInfo.abbreviation
           )}
-        </div>
-
-        {/* Resource info */}
-        <div style={contentStyles}>
-          <div style={labelStyles} title={data.logicalId}>
-            {data.logicalId}
-          </div>
-          <div style={typeStyles} title={data.resourceType}>
-            {resourceName}
-          </div>
         </div>
       </div>
 

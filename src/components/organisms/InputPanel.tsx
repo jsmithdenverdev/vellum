@@ -1,5 +1,4 @@
 import Alert from "@cloudscape-design/components/alert";
-import Box from "@cloudscape-design/components/box";
 import Button from "@cloudscape-design/components/button";
 import CodeEditor from "@cloudscape-design/components/code-editor";
 
@@ -57,8 +56,8 @@ export function InputPanel({
   };
 
   return (
-    <Box padding="m">
-      <SpaceBetween direction="vertical" size="l">
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "16px" }}>
+      <SpaceBetween direction="vertical" size="m">
         <Header
           variant="h2"
           description="Paste your CloudFormation JSON or YAML template below"
@@ -66,7 +65,7 @@ export function InputPanel({
           Template Input
         </Header>
 
-        <div style={{ height: "calc(100vh - 200px)", minHeight: "400px" }}>
+        <div style={{ flex: 1, minHeight: "500px" }}>
           <CodeEditor
             ace={ace}
             language="json"
@@ -76,7 +75,6 @@ export function InputPanel({
             preferences={{ theme: editorTheme, wrapLines: true }}
             loading={isLoading}
             i18nStrings={i18nStrings}
-            editorContentHeight={400}
             themes={{
               light: ["dawn"],
               dark: ["tomorrow_night"],
@@ -90,7 +88,7 @@ export function InputPanel({
           </Alert>
         )}
 
-        <Box textAlign="right">
+        <div style={{ textAlign: "right" }}>
           <Button
             variant="primary"
             onClick={onVisualize}
@@ -99,8 +97,8 @@ export function InputPanel({
           >
             Visualize
           </Button>
-        </Box>
+        </div>
       </SpaceBetween>
-    </Box>
+    </div>
   );
 }

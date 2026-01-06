@@ -2,7 +2,7 @@
  * SearchBar Component
  *
  * Search and filter bar for CloudFormation graph nodes.
- * Uses Cloudscape Input with search icon and Multiselect for service type filtering.
+ * Uses a vertical layout with search input, filter dropdown, and status row.
  */
 
 import { useMemo, useCallback } from "react";
@@ -10,6 +10,7 @@ import Input from "@cloudscape-design/components/input";
 import Multiselect from "@cloudscape-design/components/multiselect";
 import Button from "@cloudscape-design/components/button";
 import SpaceBetween from "@cloudscape-design/components/space-between";
+import Badge from "@cloudscape-design/components/badge";
 
 import type { MultiselectProps } from "@cloudscape-design/components/multiselect";
 
@@ -51,29 +52,33 @@ export interface SearchBarProps {
 
 const containerStyles: React.CSSProperties = {
   display: "flex",
-  alignItems: "center",
+  flexDirection: "column",
   gap: "8px",
-  padding: "8px 12px",
+  padding: "12px",
   backgroundColor: "var(--color-background-container-content)",
   borderRadius: "8px",
-  boxShadow: "0 1px 4px rgba(0, 0, 0, 0.15)",
+  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+  minWidth: "280px",
 };
 
-const searchInputStyles: React.CSSProperties = {
-  width: "200px",
-  flexShrink: 0,
+const statusRowStyles: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  minHeight: "32px",
 };
 
-const filterSelectStyles: React.CSSProperties = {
-  width: "200px",
-  flexShrink: 0,
+const filterTagsStyles: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "4px",
+  flex: 1,
 };
 
 const matchCountStyles: React.CSSProperties = {
   fontSize: "12px",
   color: "var(--color-text-body-secondary, #5f6b7a)",
   whiteSpace: "nowrap",
-  marginLeft: "4px",
 };
 
 // =============================================================================
@@ -83,21 +88,7 @@ const matchCountStyles: React.CSSProperties = {
 /**
  * Search and filter bar for CloudFormation graph nodes.
  * Provides text search by logical ID and multiselect filter by AWS service type.
- *
- * @example
- * ```tsx
- * <SearchBar
- *   searchTerm={searchTerm}
- *   onSearchChange={setSearchTerm}
- *   selectedServiceTypes={selectedTypes}
- *   onFilterChange={setSelectedTypes}
- *   availableServiceTypes={serviceTypes}
- *   onClear={clearSearch}
- *   isSearchActive={isActive}
- *   matchCount={matchingIds.size}
- *   totalCount={nodes.length}
- * />
- * ```
+ * Uses a vertical layout to prevent layout shifts when filters are applied.
  */
 export function SearchBar({
   searchTerm,
@@ -134,6 +125,16 @@ export function SearchBar({
     [selectedServiceTypes, availableServiceTypes]
   );
 
+  // Get labels for selected filters
+  const selectedFilterLabels = useMemo(
+    () =>
+      selectedServiceTypes.map((value) => {
+        const option = availableServiceTypes.find((s) => s.value === value);
+        return option?.label ?? value;
+      }),
+    [selectedServiceTypes, availableServiceTypes]
+  );
+
   // Handle search input change
   const handleSearchChange = useCallback(
     (event: { detail: { value: string } }) => {
@@ -153,64 +154,99 @@ export function SearchBar({
     [onFilterChange]
   );
 
-  // Render match count text
-  const matchCountText = useMemo(() => {
-    if (!isSearchActive) return null;
-    return `${matchCount} of ${totalCount} resources`;
-  }, [isSearchActive, matchCount, totalCount]);
+  // Remove a single filter
+  const handleRemoveFilter = useCallback(
+    (valueToRemove: string) => {
+      onFilterChange(selectedServiceTypes.filter((v) => v !== valueToRemove));
+    },
+    [selectedServiceTypes, onFilterChange]
+  );
+
+  // Show status row if search is active or filters are selected
+  const showStatusRow = isSearchActive || selectedServiceTypes.length > 0;
 
   return (
     <div style={containerStyles}>
-      <div style={searchInputStyles}>
-        <Input
-          type="search"
-          placeholder="Search resources..."
-          value={searchTerm}
-          onChange={handleSearchChange}
-          ariaLabel="Search resources by name or type"
-        />
-      </div>
+      {/* Search input */}
+      <Input
+        type="search"
+        placeholder="Search resources..."
+        value={searchTerm}
+        onChange={handleSearchChange}
+        ariaLabel="Search resources by name or type"
+      />
 
-      <div style={filterSelectStyles}>
-        <Multiselect
-          placeholder="Filter by service"
-          options={filterOptions}
-          selectedOptions={selectedOptions}
-          onChange={handleFilterChange}
-          filteringType="auto"
-          tokenLimit={0}
-          hideTokens={true}
-          ariaLabel="Filter by AWS service type"
-        />
-      </div>
+      {/* Filter dropdown */}
+      <Multiselect
+        placeholder="Filter by service type"
+        options={filterOptions}
+        selectedOptions={selectedOptions}
+        onChange={handleFilterChange}
+        filteringType="auto"
+        tokenLimit={0}
+        hideTokens={true}
+        ariaLabel="Filter by AWS service type"
+      />
 
-      {selectedServiceTypes.length > 0 && (
-        <span style={matchCountStyles}>
-          {selectedServiceTypes.length} filter{selectedServiceTypes.length > 1 ? "s" : ""}
-        </span>
+      {/* Status row - filter tags, match count, and actions */}
+      {showStatusRow && (
+        <div style={statusRowStyles}>
+          {/* Selected filter tags */}
+          <div style={filterTagsStyles}>
+            {selectedFilterLabels.map((label, index) => (
+              <Badge
+                key={selectedServiceTypes[index]}
+                color="blue"
+              >
+                {label}
+                <button
+                  onClick={() => handleRemoveFilter(selectedServiceTypes[index])}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    marginLeft: "4px",
+                    padding: "0 2px",
+                    color: "inherit",
+                    fontSize: "inherit",
+                    lineHeight: 1,
+                  }}
+                  aria-label={`Remove ${label} filter`}
+                >
+                  ×
+                </button>
+              </Badge>
+            ))}
+          </div>
+
+          {/* Match count and actions */}
+          <SpaceBetween direction="horizontal" size="xs" alignItems="center">
+            {isSearchActive && (
+              <span style={matchCountStyles}>
+                {matchCount} of {totalCount}
+              </span>
+            )}
+
+            {isSearchActive && onZoomToMatch && matchCount > 0 && (
+              <Button
+                iconName="search"
+                variant="icon"
+                onClick={onZoomToMatch}
+                ariaLabel="Zoom to first matching node"
+              />
+            )}
+
+            {isSearchActive && (
+              <Button
+                iconName="close"
+                variant="icon"
+                onClick={onClear}
+                ariaLabel="Clear search and filters"
+              />
+            )}
+          </SpaceBetween>
+        </div>
       )}
-
-      <SpaceBetween direction="horizontal" size="xs" alignItems="center">
-        {matchCountText && <span style={matchCountStyles}>{matchCountText}</span>}
-
-        {isSearchActive && onZoomToMatch && matchCount > 0 && (
-          <Button
-            iconName="search"
-            variant="icon"
-            onClick={onZoomToMatch}
-            ariaLabel="Zoom to first matching node"
-          />
-        )}
-
-        {isSearchActive && (
-          <Button
-            iconName="close"
-            variant="icon"
-            onClick={onClear}
-            ariaLabel="Clear search and filters"
-          />
-        )}
-      </SpaceBetween>
     </div>
   );
 }

@@ -751,3 +751,374 @@ describe("transformToGraph - Edge IDs", () => {
     expect(graph.edges[0].id).toContain("Ref");
   });
 });
+
+// =============================================================================
+// Fn::Sub Edge Detection Tests
+// =============================================================================
+
+describe("transformToGraph - Fn::Sub Edge Detection", () => {
+  it("should create edge for simple Fn::Sub with variable reference", () => {
+    const template = createTemplate({
+      MyBucket: {
+        Type: "AWS::S3::Bucket",
+      },
+      MyFunction: {
+        Type: "AWS::Lambda::Function",
+        Properties: {
+          Environment: {
+            Variables: {
+              BUCKET_ARN: { "Fn::Sub": "arn:aws:s3:::${MyBucket}/*" },
+            },
+          },
+        },
+      },
+    });
+
+    const graph = transformToGraph(template);
+
+    expect(graph.edges).toHaveLength(1);
+    expect(graph.edges[0]).toMatchObject({
+      source: "MyBucket",
+      target: "MyFunction",
+      data: {
+        refType: "Ref",
+      },
+    });
+  });
+
+  it("should create edges for Fn::Sub with multiple variable references", () => {
+    const template = createTemplate({
+      MyApi: {
+        Type: "AWS::ApiGateway::RestApi",
+      },
+      MyBucket: {
+        Type: "AWS::S3::Bucket",
+      },
+      MyFunction: {
+        Type: "AWS::Lambda::Function",
+        Properties: {
+          Environment: {
+            Variables: {
+              ENDPOINT: {
+                "Fn::Sub": "https://${MyApi}.execute-api.us-east-1.amazonaws.com/${MyBucket}",
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const graph = transformToGraph(template);
+
+    const edges = graph.edges.filter((e) => e.target === "MyFunction");
+    expect(edges).toHaveLength(2);
+    expect(edges.map((e) => e.source)).toEqual(
+      expect.arrayContaining(["MyApi", "MyBucket"])
+    );
+  });
+
+  it("should skip AWS pseudo-parameters in Fn::Sub", () => {
+    const template = createTemplate({
+      MyBucket: {
+        Type: "AWS::S3::Bucket",
+        Properties: {
+          BucketName: {
+            "Fn::Sub": "${AWS::StackName}-${AWS::Region}-${AWS::AccountId}-bucket",
+          },
+        },
+      },
+    });
+
+    const graph = transformToGraph(template);
+
+    expect(graph.edges).toHaveLength(0);
+  });
+
+  it("should detect GetAtt-style references in Fn::Sub (dot notation)", () => {
+    const template = createTemplate({
+      MyQueue: {
+        Type: "AWS::SQS::Queue",
+      },
+      MyFunction: {
+        Type: "AWS::Lambda::Function",
+        Properties: {
+          Environment: {
+            Variables: {
+              QUEUE_URL: { "Fn::Sub": "The queue URL is ${MyQueue.QueueUrl}" },
+            },
+          },
+        },
+      },
+    });
+
+    const graph = transformToGraph(template);
+
+    expect(graph.edges).toHaveLength(1);
+    expect(graph.edges[0]).toMatchObject({
+      source: "MyQueue",
+      target: "MyFunction",
+      data: {
+        refType: "GetAtt",
+        attribute: "QueueUrl",
+      },
+    });
+  });
+
+  it("should handle Fn::Sub with substitution map - Ref in map", () => {
+    const template = createTemplate({
+      MyBucket: {
+        Type: "AWS::S3::Bucket",
+      },
+      MyFunction: {
+        Type: "AWS::Lambda::Function",
+        Properties: {
+          Environment: {
+            Variables: {
+              BUCKET_ARN: {
+                "Fn::Sub": [
+                  "arn:aws:s3:::${BucketName}/*",
+                  { BucketName: { Ref: "MyBucket" } },
+                ],
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const graph = transformToGraph(template);
+
+    expect(graph.edges).toHaveLength(1);
+    expect(graph.edges[0]).toMatchObject({
+      source: "MyBucket",
+      target: "MyFunction",
+      data: {
+        refType: "Ref",
+      },
+    });
+  });
+
+  it("should handle Fn::Sub with substitution map - GetAtt in map", () => {
+    const template = createTemplate({
+      MyRole: {
+        Type: "AWS::IAM::Role",
+        Properties: {
+          AssumeRolePolicyDocument: {},
+        },
+      },
+      MyFunction: {
+        Type: "AWS::Lambda::Function",
+        Properties: {
+          Environment: {
+            Variables: {
+              ROLE_ARN: {
+                "Fn::Sub": [
+                  "The role ARN is ${RoleArn}",
+                  { RoleArn: { "Fn::GetAtt": ["MyRole", "Arn"] } },
+                ],
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const graph = transformToGraph(template);
+
+    expect(graph.edges).toHaveLength(1);
+    expect(graph.edges[0]).toMatchObject({
+      source: "MyRole",
+      target: "MyFunction",
+      data: {
+        refType: "GetAtt",
+        attribute: "Arn",
+      },
+    });
+  });
+
+  it("should handle Fn::Sub with mixed template variables and map variables", () => {
+    const template = createTemplate({
+      MyBucket: {
+        Type: "AWS::S3::Bucket",
+      },
+      MyRole: {
+        Type: "AWS::IAM::Role",
+        Properties: {
+          AssumeRolePolicyDocument: {},
+        },
+      },
+      MyFunction: {
+        Type: "AWS::Lambda::Function",
+        Properties: {
+          Environment: {
+            Variables: {
+              INFO: {
+                "Fn::Sub": [
+                  "Bucket: ${MyBucket}, Role: ${RoleArn}",
+                  { RoleArn: { "Fn::GetAtt": ["MyRole", "Arn"] } },
+                ],
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const graph = transformToGraph(template);
+
+    // Should detect MyBucket from template string (not in map)
+    // and MyRole from GetAtt in the map
+    const edges = graph.edges.filter((e) => e.target === "MyFunction");
+    expect(edges).toHaveLength(2);
+    expect(edges.map((e) => e.source)).toEqual(
+      expect.arrayContaining(["MyBucket", "MyRole"])
+    );
+  });
+
+  it("should not create edge for variables defined in substitution map", () => {
+    const template = createTemplate({
+      MyBucket: {
+        Type: "AWS::S3::Bucket",
+      },
+      MyFunction: {
+        Type: "AWS::Lambda::Function",
+        Properties: {
+          Environment: {
+            Variables: {
+              // BucketName is defined in the map, so it should not create an edge
+              // to a resource named "BucketName" (which doesn't exist anyway)
+              BUCKET_ARN: {
+                "Fn::Sub": [
+                  "arn:aws:s3:::${BucketName}/*",
+                  { BucketName: { Ref: "MyBucket" } },
+                ],
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const graph = transformToGraph(template);
+
+    // Only one edge: from MyBucket via the Ref in the map
+    expect(graph.edges).toHaveLength(1);
+    expect(graph.edges[0].source).toBe("MyBucket");
+  });
+
+  it("should handle complex Fn::Sub with pseudo-parameters and resource refs", () => {
+    const template = createTemplate({
+      MyApi: {
+        Type: "AWS::ApiGateway::RestApi",
+      },
+      MyFunction: {
+        Type: "AWS::Lambda::Function",
+        Properties: {
+          Environment: {
+            Variables: {
+              API_URL: {
+                "Fn::Sub":
+                  "https://${MyApi}.execute-api.${AWS::Region}.amazonaws.com/prod",
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const graph = transformToGraph(template);
+
+    // Should only detect MyApi, not AWS::Region
+    expect(graph.edges).toHaveLength(1);
+    expect(graph.edges[0]).toMatchObject({
+      source: "MyApi",
+      target: "MyFunction",
+      data: {
+        refType: "Ref",
+      },
+    });
+  });
+
+  it("should handle nested Fn::Sub in other intrinsic functions", () => {
+    const template = createTemplate({
+      MyBucket: {
+        Type: "AWS::S3::Bucket",
+      },
+      MyFunction: {
+        Type: "AWS::Lambda::Function",
+        Properties: {
+          Environment: {
+            Variables: {
+              BUCKET_ARN: {
+                "Fn::If": [
+                  "IsProd",
+                  { "Fn::Sub": "arn:aws:s3:::${MyBucket}/*" },
+                  "default-arn",
+                ],
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const graph = transformToGraph(template);
+
+    expect(graph.edges).toHaveLength(1);
+    expect(graph.edges[0]).toMatchObject({
+      source: "MyBucket",
+      target: "MyFunction",
+    });
+  });
+
+  it("should deduplicate edges from same Fn::Sub variable appearing multiple times", () => {
+    const template = createTemplate({
+      MyBucket: {
+        Type: "AWS::S3::Bucket",
+      },
+      MyFunction: {
+        Type: "AWS::Lambda::Function",
+        Properties: {
+          Environment: {
+            Variables: {
+              ARNS: {
+                "Fn::Sub": "arn:aws:s3:::${MyBucket}/* and arn:aws:s3:::${MyBucket}/subfolder/*",
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const graph = transformToGraph(template);
+
+    // Should deduplicate the two references to MyBucket
+    expect(graph.edges).toHaveLength(1);
+    expect(graph.edges[0].source).toBe("MyBucket");
+  });
+
+  it("should skip escaped variables in Fn::Sub (literal dollar sign)", () => {
+    const template = createTemplate({
+      MyBucket: {
+        Type: "AWS::S3::Bucket",
+      },
+      MyFunction: {
+        Type: "AWS::Lambda::Function",
+        Properties: {
+          Environment: {
+            Variables: {
+              // ${!Literal} is escaped and should not be detected
+              // ${MyBucket} should still be detected
+              MIXED: { "Fn::Sub": "literal: ${!Literal}, real: ${MyBucket}" },
+            },
+          },
+        },
+      },
+    });
+
+    const graph = transformToGraph(template);
+
+    expect(graph.edges).toHaveLength(1);
+    expect(graph.edges[0].source).toBe("MyBucket");
+  });
+});

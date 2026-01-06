@@ -5,22 +5,29 @@
  * CloudFormation resource dependencies.
  */
 
-import { useEffect, useMemo, useCallback } from "react";
+import { useEffect, useMemo, useCallback, useState } from "react";
 import {
   ReactFlow,
   Background,
   Controls,
   MiniMap,
   Panel,
+  EdgeLabelRenderer,
   useNodesState,
   useEdgesState,
   getNodesBounds,
   getViewportForBounds,
   useReactFlow,
+  BaseEdge,
+  getBezierPath,
   type Node,
+  type Edge,
   type NodeTypes,
+  type EdgeTypes,
   type ColorMode,
   type NodeMouseHandler,
+  type EdgeMouseHandler,
+  type EdgeProps,
   BackgroundVariant,
 } from "@xyflow/react";
 import { toSvg } from "html-to-image";
@@ -32,9 +39,11 @@ import Icon from "@cloudscape-design/components/icon";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import Spinner from "@cloudscape-design/components/spinner";
 
-import { ResourceNode } from "@/components/molecules";
+import { ResourceNode, SearchBar } from "@/components/molecules";
 import { useTheme } from "@/hooks/useTheme";
-import type { CfnNode, CfnEdge, CfnNodeData } from "@/types/graph";
+import { useGraphSearch } from "@/hooks/useGraphSearch";
+import { getCfnNodeData } from "@/types/graph";
+import type { CfnNode, CfnEdge, CfnNodeData, CfnEdgeData } from "@/types/graph";
 
 // Import React Flow styles
 import "@xyflow/react/dist/style.css";
@@ -63,6 +72,104 @@ export interface GraphCanvasProps {
 const nodeTypes: NodeTypes = {
   cfnResource: ResourceNode,
 };
+
+// =============================================================================
+// Custom Edge with Hover Label
+// =============================================================================
+
+/**
+ * Props for the custom edge with hover label
+ */
+interface LabeledEdgeProps extends EdgeProps<Edge<CfnEdgeData>> {
+  hoveredEdgeId: string | null;
+  isDarkMode: boolean;
+}
+
+/**
+ * Custom edge component that shows relationship type label on hover
+ */
+function LabeledEdge({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  data,
+  hoveredEdgeId,
+  isDarkMode,
+  style,
+  markerEnd,
+}: LabeledEdgeProps) {
+  const [edgePath, labelX, labelY] = getBezierPath({
+    sourceX,
+    sourceY,
+    targetX,
+    targetY,
+    sourcePosition,
+    targetPosition,
+  });
+
+  const isHovered = hoveredEdgeId === id;
+
+  // Format the label based on reference type
+  const getEdgeLabel = (): string => {
+    if (!data) return "";
+    const { refType, attribute } = data;
+    if (refType === "GetAtt" && attribute) {
+      return `GetAtt: ${attribute}`;
+    }
+    return refType;
+  };
+
+  const labelText = getEdgeLabel();
+
+  return (
+    <>
+      <BaseEdge
+        id={id}
+        path={edgePath}
+        style={{
+          ...style,
+          strokeWidth: isHovered ? 2.5 : (style?.strokeWidth ?? 1.5),
+          stroke: isHovered
+            ? isDarkMode
+              ? "#539fe5"
+              : "#0972d3"
+            : (style?.stroke ?? (isDarkMode ? "#7d8998" : "#687078")),
+        }}
+        markerEnd={markerEnd}
+      />
+      {isHovered && labelText && (
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position: "absolute",
+              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+              pointerEvents: "none",
+              backgroundColor: isDarkMode ? "#232f3e" : "#ffffff",
+              color: isDarkMode ? "#ffffff" : "#16191f",
+              padding: "4px 8px",
+              borderRadius: "4px",
+              fontSize: "11px",
+              fontWeight: 500,
+              fontFamily:
+                '"Amazon Ember", "Helvetica Neue", Roboto, Arial, sans-serif',
+              border: `1px solid ${isDarkMode ? "#3f4b5b" : "#d1d5db"}`,
+              boxShadow: isDarkMode
+                ? "0 2px 4px rgba(0, 0, 0, 0.3)"
+                : "0 2px 4px rgba(0, 0, 0, 0.1)",
+              zIndex: 1000,
+            }}
+          >
+            {labelText}
+          </div>
+        </EdgeLabelRenderer>
+      )}
+    </>
+  );
+}
 
 // =============================================================================
 // Styles
@@ -134,17 +241,105 @@ function EmptyState() {
 }
 
 /**
- * Loading overlay displayed during graph processing
+ * Skeleton placeholder for loading state
+ */
+function SkeletonNode({ isDarkMode, delay }: { isDarkMode: boolean; delay: number }) {
+  const skeletonColor = isDarkMode ? "#3f4b5b" : "#d1d5db";
+  const shimmerColor = isDarkMode ? "#4a5568" : "#e5e7eb";
+
+  return (
+    <div
+      style={{
+        width: "180px",
+        height: "60px",
+        backgroundColor: isDarkMode ? "#232f3e" : "#ffffff",
+        borderRadius: "8px",
+        border: `1px solid ${isDarkMode ? "#3f4b5b" : "#d1d5db"}`,
+        padding: "10px 14px",
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+        animation: `pulse 1.5s ease-in-out ${delay}ms infinite`,
+      }}
+    >
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          gap: "6px",
+        }}
+      >
+        <div
+          style={{
+            width: "60%",
+            height: "10px",
+            backgroundColor: skeletonColor,
+            borderRadius: "4px",
+          }}
+        />
+        <div
+          style={{
+            width: "80%",
+            height: "12px",
+            backgroundColor: skeletonColor,
+            borderRadius: "4px",
+          }}
+        />
+      </div>
+      <div
+        style={{
+          width: "40px",
+          height: "40px",
+          backgroundColor: shimmerColor,
+          borderRadius: "6px",
+        }}
+      />
+    </div>
+  );
+}
+
+/**
+ * Loading overlay with skeleton placeholder displayed during graph processing
  */
 function LoadingOverlay({ isDarkMode }: { isDarkMode: boolean }) {
   return (
     <div style={getLoadingOverlayStyles(isDarkMode)}>
-      <SpaceBetween direction="vertical" size="s" alignItems="center">
-        <Spinner size="large" />
-        <Box variant="p" color="text-body-secondary">
-          Processing template...
-        </Box>
+      <SpaceBetween direction="vertical" size="l" alignItems="center">
+        {/* Skeleton nodes to indicate graph loading */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "20px",
+            alignItems: "center",
+          }}
+        >
+          <SkeletonNode isDarkMode={isDarkMode} delay={0} />
+          <div style={{ display: "flex", gap: "40px" }}>
+            <SkeletonNode isDarkMode={isDarkMode} delay={100} />
+            <SkeletonNode isDarkMode={isDarkMode} delay={200} />
+          </div>
+        </div>
+
+        {/* Status indicator */}
+        <SpaceBetween direction="horizontal" size="xs" alignItems="center">
+          <Spinner size="normal" />
+          <Box variant="p" color="text-body-secondary">
+            Parsing and laying out resources...
+          </Box>
+        </SpaceBetween>
       </SpaceBetween>
+
+      {/* CSS animation for skeleton pulse */}
+      <style>
+        {`
+          @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+          }
+        `}
+      </style>
     </div>
   );
 }
@@ -211,6 +406,74 @@ function ExportButton() {
 }
 
 /**
+ * Search panel component that must be rendered inside ReactFlow
+ * to access the useReactFlow hook for zooming to matched nodes
+ */
+interface SearchPanelProps {
+  nodes: CfnNode[];
+  searchTerm: string;
+  onSearchChange: (term: string) => void;
+  selectedServiceTypes: string[];
+  onFilterChange: (types: string[]) => void;
+  availableServiceTypes: ReturnType<typeof useGraphSearch>["availableServiceTypes"];
+  onClear: () => void;
+  isSearchActive: boolean;
+  matchCount: number;
+  matchingNodeIds: Set<string>;
+}
+
+function SearchPanel({
+  nodes,
+  searchTerm,
+  onSearchChange,
+  selectedServiceTypes,
+  onFilterChange,
+  availableServiceTypes,
+  onClear,
+  isSearchActive,
+  matchCount,
+  matchingNodeIds,
+}: SearchPanelProps) {
+  const { setCenter } = useReactFlow();
+
+  // Zoom to first matching node
+  const handleZoomToMatch = useCallback(() => {
+    if (matchingNodeIds.size === 0) return;
+
+    // Get the first matching node
+    const firstMatchId = Array.from(matchingNodeIds)[0];
+    const matchingNode = nodes.find((n) => n.id === firstMatchId);
+
+    if (matchingNode && matchingNode.position) {
+      // Center the view on the matching node
+      setCenter(
+        matchingNode.position.x + 110, // Center on node (node width ~220)
+        matchingNode.position.y + 30, // Center on node (node height ~60)
+        { zoom: 1, duration: 400 }
+      );
+    }
+  }, [matchingNodeIds, nodes, setCenter]);
+
+  // If there are no nodes, don't show the search bar
+  if (nodes.length === 0) return null;
+
+  return (
+    <SearchBar
+      searchTerm={searchTerm}
+      onSearchChange={onSearchChange}
+      selectedServiceTypes={selectedServiceTypes}
+      onFilterChange={onFilterChange}
+      availableServiceTypes={availableServiceTypes}
+      onClear={onClear}
+      isSearchActive={isSearchActive}
+      matchCount={matchCount}
+      totalCount={nodes.length}
+      onZoomToMatch={handleZoomToMatch}
+    />
+  );
+}
+
+/**
  * Extracts the AWS service name from a resource type
  */
 function extractService(resourceType: string): string {
@@ -225,7 +488,7 @@ function extractService(resourceType: string): string {
  * MiniMap node color function based on service type
  */
 function getMiniMapNodeColor(node: Node): string {
-  const data = node.data as CfnNodeData | undefined;
+  const data = getCfnNodeData(node);
   if (!data?.resourceType) return "#687078";
 
   const service = extractService(data.resourceType);
@@ -256,20 +519,66 @@ export function GraphCanvas({
   // Theme context
   const { isDarkMode } = useTheme();
 
+  // Track hovered edge for label display
+  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
+
+  // Search and filter functionality
+  const {
+    searchTerm,
+    setSearchTerm,
+    selectedServiceTypes,
+    setSelectedServiceTypes,
+    availableServiceTypes,
+    matchingNodeIds,
+    isSearchActive,
+    clearSearch,
+  } = useGraphSearch(initialNodes);
+
+  // Apply search/filter state to nodes
+  const nodesWithSearchState = useMemo(() => {
+    if (!isSearchActive) return initialNodes;
+
+    return initialNodes.map((node) => ({
+      ...node,
+      data: {
+        ...node.data,
+        isDimmed: !matchingNodeIds.has(node.id),
+        isHighlighted: matchingNodeIds.has(node.id),
+      },
+    }));
+  }, [initialNodes, isSearchActive, matchingNodeIds]);
+
   // React Flow state management
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [nodes, setNodes, onNodesChange] = useNodesState(nodesWithSearchState);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
-  // Update nodes/edges when props change
+  // Update nodes/edges when props or search state changes
   useEffect(() => {
-    setNodes(initialNodes);
+    setNodes(nodesWithSearchState);
     setEdges(initialEdges);
-  }, [initialNodes, initialEdges, setNodes, setEdges]);
+  }, [nodesWithSearchState, initialEdges, setNodes, setEdges]);
 
-  // Default edge options - theme aware
+  // Enable virtualization for large graphs (>50 nodes)
+  const shouldVirtualize = initialNodes.length > 50;
+
+  // Create custom edge types with hover state
+  const edgeTypes: EdgeTypes = useMemo(
+    () => ({
+      labeled: (props: EdgeProps<Edge<CfnEdgeData>>) => (
+        <LabeledEdge
+          {...props}
+          hoveredEdgeId={hoveredEdgeId}
+          isDarkMode={isDarkMode}
+        />
+      ),
+    }),
+    [hoveredEdgeId, isDarkMode]
+  );
+
+  // Default edge options - theme aware, use custom labeled edge type
   const defaultEdgeOptions = useMemo(
     () => ({
-      type: "default" as const, // Bezier curve
+      type: "labeled" as const,
       style: {
         stroke: isDarkMode ? "#7d8998" : "#687078",
         strokeWidth: 1.5,
@@ -299,8 +608,9 @@ export function GraphCanvas({
   // Handle node click
   const handleNodeClick: NodeMouseHandler = useCallback(
     (_event, node) => {
-      if (onNodeClick && node.data) {
-        onNodeClick(node.data as CfnNodeData);
+      const nodeData = getCfnNodeData(node);
+      if (onNodeClick && nodeData) {
+        onNodeClick(nodeData);
       }
     },
     [onNodeClick]
@@ -309,12 +619,23 @@ export function GraphCanvas({
   // Handle node double-click
   const handleNodeDoubleClick: NodeMouseHandler = useCallback(
     (_event, node) => {
-      if (onNodeDoubleClick && node.data) {
-        onNodeDoubleClick(node.data as CfnNodeData);
+      const nodeData = getCfnNodeData(node);
+      if (onNodeDoubleClick && nodeData) {
+        onNodeDoubleClick(nodeData);
       }
     },
     [onNodeDoubleClick]
   );
+
+  // Handle edge mouse enter for hover label
+  const handleEdgeMouseEnter: EdgeMouseHandler = useCallback((_event, edge) => {
+    setHoveredEdgeId(edge.id);
+  }, []);
+
+  // Handle edge mouse leave
+  const handleEdgeMouseLeave: EdgeMouseHandler = useCallback(() => {
+    setHoveredEdgeId(null);
+  }, []);
 
   return (
     <Container
@@ -343,7 +664,10 @@ export function GraphCanvas({
               onEdgesChange={onEdgesChange}
               onNodeClick={handleNodeClick}
               onNodeDoubleClick={handleNodeDoubleClick}
+              onEdgeMouseEnter={handleEdgeMouseEnter}
+              onEdgeMouseLeave={handleEdgeMouseLeave}
               nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
               defaultEdgeOptions={defaultEdgeOptions}
               fitView
               fitViewOptions={fitViewOptions}
@@ -357,6 +681,7 @@ export function GraphCanvas({
               zoomOnScroll={true}
               preventScrolling={true}
               attributionPosition="bottom-left"
+              onlyRenderVisibleElements={shouldVirtualize}
             >
               <Background
                 variant={BackgroundVariant.Dots}
@@ -371,7 +696,23 @@ export function GraphCanvas({
                 position="top-right"
               />
               <Panel position="top-left">
-                <ExportButton />
+                <SpaceBetween direction="horizontal" size="xs" alignItems="center">
+                  <ExportButton />
+                </SpaceBetween>
+              </Panel>
+              <Panel position="top-center">
+                <SearchPanel
+                  nodes={initialNodes}
+                  searchTerm={searchTerm}
+                  onSearchChange={setSearchTerm}
+                  selectedServiceTypes={selectedServiceTypes}
+                  onFilterChange={setSelectedServiceTypes}
+                  availableServiceTypes={availableServiceTypes}
+                  onClear={clearSearch}
+                  isSearchActive={isSearchActive}
+                  matchCount={matchingNodeIds.size}
+                  matchingNodeIds={matchingNodeIds}
+                />
               </Panel>
               <MiniMap
                 nodeColor={getMiniMapNodeColor}

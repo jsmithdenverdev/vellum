@@ -12,13 +12,14 @@ import "ace-builds/src-noconflict/mode-json";
 import "ace-builds/src-noconflict/theme-dawn";
 import "ace-builds/src-noconflict/theme-tomorrow_night";
 
+import { useTheme } from "@/hooks";
+
 export interface InputPanelProps {
   value: string;
   onChange: (value: string) => void;
   onVisualize: () => void;
   error?: string;
   isLoading?: boolean;
-  isDarkMode?: boolean;
 }
 
 const i18nStrings: CodeEditorProps.I18nStrings = {
@@ -47,8 +48,8 @@ export function InputPanel({
   onVisualize,
   error,
   isLoading = false,
-  isDarkMode = false,
 }: InputPanelProps) {
+  const { isDarkMode } = useTheme();
   const editorTheme = isDarkMode ? "tomorrow_night" : "dawn";
 
   const handlePreferencesChange: CodeEditorProps["onPreferencesChange"] = () => {
@@ -65,7 +66,7 @@ export function InputPanel({
           Template Input
         </Header>
 
-        <div style={{ height: "calc(100vh - 280px)", minHeight: "400px" }}>
+        <div style={{ height: "calc(100vh - 200px)", minHeight: "400px" }}>
           <CodeEditor
             ace={ace}
             language="json"
@@ -75,7 +76,7 @@ export function InputPanel({
             preferences={{ theme: editorTheme, wrapLines: true }}
             loading={isLoading}
             i18nStrings={i18nStrings}
-            editorContentHeight={500}
+            editorContentHeight={400}
             themes={{
               light: ["dawn"],
               dark: ["tomorrow_night"],

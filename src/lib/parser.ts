@@ -1,9 +1,12 @@
 /**
  * CloudFormation Template Parser
  *
- * Parses JSON CloudFormation templates into typed structures with
+ * Parses JSON and YAML CloudFormation templates into typed structures with
  * comprehensive validation and error handling.
  */
+
+import yaml from "js-yaml";
+import { CLOUDFORMATION_SCHEMA } from "cloudformation-js-yaml-schema";
 
 import type { CloudFormationTemplate, CfnResource } from "../types/cloudformation";
 
@@ -353,19 +356,93 @@ function validateTemplate(template: unknown): string | null {
 }
 
 // =============================================================================
+// YAML Intrinsic Function Conversion
+// =============================================================================
+
+/**
+ * CloudFormation intrinsic function object as parsed by cloudformation-js-yaml-schema.
+ * The schema wraps YAML shorthand tags (!Ref, !Sub, etc.) in objects with these properties.
+ */
+interface CfnYamlIntrinsic {
+  class: string;
+  name: string;
+  data: unknown;
+}
+
+/**
+ * Type guard to check if a value is a CloudFormation YAML intrinsic function object
+ */
+function isCfnYamlIntrinsic(value: unknown): value is CfnYamlIntrinsic {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "class" in value &&
+    "name" in value &&
+    "data" in value &&
+    typeof (value as CfnYamlIntrinsic).class === "string" &&
+    typeof (value as CfnYamlIntrinsic).name === "string"
+  );
+}
+
+/**
+ * Recursively converts YAML intrinsic function objects to standard JSON format.
+ *
+ * The cloudformation-js-yaml-schema package wraps YAML shorthand tags like !Ref
+ * in objects with {class, name, data} structure. This function converts them
+ * to the standard CloudFormation JSON format (e.g., {"Ref": "..."}).
+ */
+function convertYamlIntrinsics(value: unknown): unknown {
+  if (isCfnYamlIntrinsic(value)) {
+    const name = value.name;
+    const data = convertYamlIntrinsics(value.data);
+
+    // Map YAML tag names to their JSON equivalents
+    // Most are prefixed with "Fn::" except Ref and Condition
+    if (name === "Ref" || name === "Condition") {
+      return { [name]: data };
+    }
+
+    // Handle GetAtt specially - convert dot notation string to array format
+    if (name === "GetAtt" && typeof data === "string") {
+      const parts = data.split(".");
+      if (parts.length >= 2) {
+        const [logicalId, ...attributeParts] = parts;
+        return { "Fn::GetAtt": [logicalId, attributeParts.join(".")] };
+      }
+    }
+
+    return { [`Fn::${name}`]: data };
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(convertYamlIntrinsics);
+  }
+
+  if (typeof value === "object" && value !== null) {
+    const result: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value)) {
+      result[key] = convertYamlIntrinsics(val);
+    }
+    return result;
+  }
+
+  return value;
+}
+
+// =============================================================================
 // Parser
 // =============================================================================
 
 /**
- * Parses a CloudFormation JSON template string into a typed structure.
+ * Parses a CloudFormation JSON or YAML template string into a typed structure.
  *
- * @param jsonString - The JSON string to parse
+ * @param input - The JSON or YAML string to parse
  * @returns A discriminated union indicating success with the parsed template,
  *          or failure with an error message
  *
  * @example
  * ```typescript
- * const result = parseTemplate(jsonString);
+ * const result = parseTemplate(jsonOrYamlString);
  * if (result.success) {
  *   console.log(result.template.Resources);
  * } else {
@@ -373,33 +450,49 @@ function validateTemplate(template: unknown): string | null {
  * }
  * ```
  */
-export function parseTemplate(jsonString: string): ParseResult {
+export function parseTemplate(input: string): ParseResult {
   // Handle empty input
-  if (!jsonString || jsonString.trim().length === 0) {
+  if (!input || input.trim().length === 0) {
     return {
       success: false,
       error: "Input is empty or contains only whitespace.",
     };
   }
 
-  // Parse JSON
+  // Try parsing as JSON first
   let parsed: unknown;
+  let parseMethod: "json" | "yaml" = "json";
+
   try {
-    parsed = JSON.parse(jsonString);
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Unknown parsing error";
-    return {
-      success: false,
-      error: `Invalid JSON: ${message}`,
-    };
+    parsed = JSON.parse(input);
+  } catch {
+    // JSON parse failed, try YAML
+    parseMethod = "yaml";
+    try {
+      const yamlParsed = yaml.load(input, {
+        schema: CLOUDFORMATION_SCHEMA,
+      });
+
+      // Convert YAML intrinsic function objects to standard JSON format
+      parsed = convertYamlIntrinsics(yamlParsed);
+    } catch (yamlError) {
+      const message =
+        yamlError instanceof Error ? yamlError.message : "Unknown parsing error";
+      return {
+        success: false,
+        error: `Invalid template format. Failed to parse as JSON or YAML: ${message}`,
+      };
+    }
   }
 
   // Validate template structure
   const validationError = validateTemplate(parsed);
   if (validationError) {
+    // Include parse method context for better error messages
+    const context = parseMethod === "yaml" ? " (parsed as YAML)" : "";
     return {
       success: false,
-      error: validationError,
+      error: `${validationError}${context}`,
     };
   }
 

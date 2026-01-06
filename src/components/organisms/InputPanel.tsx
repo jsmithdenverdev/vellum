@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from "react";
 import Alert from "@cloudscape-design/components/alert";
 import Button from "@cloudscape-design/components/button";
 import CodeEditor from "@cloudscape-design/components/code-editor";
@@ -47,15 +48,16 @@ const containerStyles: React.CSSProperties = {
   flexDirection: "column",
   padding: "16px",
   gap: "16px",
+  boxSizing: "border-box",
 };
 
 const editorContainerStyles: React.CSSProperties = {
   flex: 1,
   minHeight: 0,
-  overflow: "hidden",
 };
 
 const footerStyles: React.CSSProperties = {
+  flexShrink: 0,
   display: "flex",
   flexDirection: "column",
   gap: "12px",
@@ -70,13 +72,35 @@ export function InputPanel({
 }: InputPanelProps) {
   const { isDarkMode } = useTheme();
   const editorTheme = isDarkMode ? "tomorrow_night" : "dawn";
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [editorHeight, setEditorHeight] = useState(400);
+
+  // Calculate editor height based on container
+  useEffect(() => {
+    const updateHeight = () => {
+      if (containerRef.current) {
+        const containerHeight = containerRef.current.clientHeight;
+        // Subtract header (~80px), footer (~60px), gaps (32px), padding (32px)
+        const availableHeight = containerHeight - 180;
+        setEditorHeight(Math.max(200, availableHeight));
+      }
+    };
+
+    updateHeight();
+    window.addEventListener("resize", updateHeight);
+    return () => window.removeEventListener("resize", updateHeight);
+  }, []);
 
   const handlePreferencesChange: CodeEditorProps["onPreferencesChange"] = () => {
     // Preferences are managed externally based on system theme
   };
 
+  const handleEditorResize: CodeEditorProps["onEditorContentResize"] = (event) => {
+    setEditorHeight(event.detail.height);
+  };
+
   return (
-    <div style={containerStyles}>
+    <div ref={containerRef} style={containerStyles}>
       {/* Header */}
       <Header
         variant="h2"
@@ -93,10 +117,11 @@ export function InputPanel({
           value={value}
           onDelayedChange={({ detail }) => onChange(detail.value)}
           onPreferencesChange={handlePreferencesChange}
+          onEditorContentResize={handleEditorResize}
           preferences={{ theme: editorTheme, wrapLines: true }}
           loading={isLoading}
           i18nStrings={i18nStrings}
-          editorContentHeight={800}
+          editorContentHeight={editorHeight}
           themes={{
             light: ["dawn"],
             dark: ["tomorrow_night"],

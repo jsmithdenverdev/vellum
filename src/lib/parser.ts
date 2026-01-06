@@ -5,7 +5,7 @@
  * comprehensive validation and error handling.
  */
 
-import type { CloudFormationTemplate, CfnResource } from "@/types/cloudformation";
+import type { CloudFormationTemplate, CfnResource } from "../types/cloudformation";
 
 // =============================================================================
 // Result Types

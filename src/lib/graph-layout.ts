@@ -7,7 +7,7 @@
 
 import Dagre from "@dagrejs/dagre";
 
-import type { CfnNode, CfnEdge } from "@/types/graph";
+import type { CfnNode, CfnEdge } from "../types/graph";
 
 // =============================================================================
 // Constants

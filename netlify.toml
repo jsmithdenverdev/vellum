@@ -10,11 +10,12 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
-# API redirect - MUST come before SPA catch-all
+# API redirect - force=true ensures this takes precedence
 [[redirects]]
   from = "/api/render.svg"
   to = "/.netlify/functions/render-svg"
   status = 200
+  force = true
 
 # SPA routing - redirect all other requests to index.html
 [[redirects]]

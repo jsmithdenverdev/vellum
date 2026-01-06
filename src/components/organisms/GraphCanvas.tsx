@@ -5,7 +5,7 @@
  * CloudFormation resource dependencies.
  */
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useCallback } from "react";
 import {
   ReactFlow,
   Background,
@@ -16,6 +16,7 @@ import {
   type Node,
   type NodeTypes,
   type ColorMode,
+  type NodeMouseHandler,
   BackgroundVariant,
 } from "@xyflow/react";
 import Box from "@cloudscape-design/components/box";
@@ -43,6 +44,10 @@ export interface GraphCanvasProps {
   edges?: CfnEdge[];
   /** Whether the graph is currently being processed */
   isLoading?: boolean;
+  /** Callback when a node is clicked */
+  onNodeClick?: (nodeData: CfnNodeData) => void;
+  /** Callback when a node is double-clicked */
+  onNodeDoubleClick?: (nodeData: CfnNodeData) => void;
 }
 
 // =============================================================================
@@ -178,6 +183,8 @@ export function GraphCanvas({
   nodes: initialNodes = [],
   edges: initialEdges = [],
   isLoading = false,
+  onNodeClick,
+  onNodeDoubleClick,
 }: GraphCanvasProps) {
   // Theme context
   const { isDarkMode } = useTheme();
@@ -222,6 +229,26 @@ export function GraphCanvas({
   // Background dot color based on theme
   const backgroundDotColor = isDarkMode ? "#414d5c" : "#d1d5db";
 
+  // Handle node click
+  const handleNodeClick: NodeMouseHandler = useCallback(
+    (_event, node) => {
+      if (onNodeClick && node.data) {
+        onNodeClick(node.data as CfnNodeData);
+      }
+    },
+    [onNodeClick]
+  );
+
+  // Handle node double-click
+  const handleNodeDoubleClick: NodeMouseHandler = useCallback(
+    (_event, node) => {
+      if (onNodeDoubleClick && node.data) {
+        onNodeDoubleClick(node.data as CfnNodeData);
+      }
+    },
+    [onNodeDoubleClick]
+  );
+
   return (
     <Container
       header={
@@ -247,6 +274,8 @@ export function GraphCanvas({
               edges={edges}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
+              onNodeClick={handleNodeClick}
+              onNodeDoubleClick={handleNodeDoubleClick}
               nodeTypes={nodeTypes}
               defaultEdgeOptions={defaultEdgeOptions}
               fitView

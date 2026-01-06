@@ -51,8 +51,8 @@ const containerStyles: React.CSSProperties = {
 
 const editorContainerStyles: React.CSSProperties = {
   flex: 1,
-  minHeight: 0, // Important for flex children to shrink properly
-  height: "calc(100vh - 220px)", // Explicit height for CodeEditor
+  minHeight: 0,
+  overflow: "hidden",
 };
 
 const footerStyles: React.CSSProperties = {
@@ -96,6 +96,7 @@ export function InputPanel({
           preferences={{ theme: editorTheme, wrapLines: true }}
           loading={isLoading}
           i18nStrings={i18nStrings}
+          editorContentHeight={800}
           themes={{
             light: ["dawn"],
             dark: ["tomorrow_night"],

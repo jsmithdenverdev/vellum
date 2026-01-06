@@ -367,13 +367,15 @@ describe("parseTemplate", () => {
     });
   });
 
-  describe("invalid JSON handling", () => {
-    it("should return error for invalid JSON syntax", () => {
+  describe("invalid input handling", () => {
+    it("should return error for invalid syntax", () => {
+      // This string is valid YAML (bare words) but not a valid CFN template
       const result = parseTemplate("{invalid json}");
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error).toMatch(/Invalid JSON/);
+        // YAML parses this as a mapping, but it fails CFN validation
+        expect(result.error).toMatch(/Unknown top-level keys|Invalid template/);
       }
     });
 
@@ -422,12 +424,13 @@ describe("parseTemplate", () => {
       }
     });
 
-    it("should return error for truncated JSON", () => {
+    it("should return error for truncated input", () => {
       const result = parseTemplate('{"Resources": {');
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error).toMatch(/Invalid JSON/);
+        // Both JSON and YAML fail to parse incomplete input
+        expect(result.error).toMatch(/Invalid template format|unexpected end/);
       }
     });
   });
@@ -794,6 +797,215 @@ describe("parseTemplate", () => {
         expect(result.error).toMatch(/Unknown top-level keys.*UnknownSection/);
       }
     });
+  });
+});
+
+// =============================================================================
+// YAML Parsing Tests
+// =============================================================================
+
+describe("YAML parsing", () => {
+  it("should parse a valid YAML template", () => {
+    const yamlTemplate = `
+AWSTemplateFormatVersion: "2010-09-09"
+Resources:
+  MyBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: my-bucket
+`;
+
+    const result = parseTemplate(yamlTemplate);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.template.Resources.MyBucket).toBeDefined();
+      expect(result.template.Resources.MyBucket.Type).toBe("AWS::S3::Bucket");
+      expect(result.template.Resources.MyBucket.Properties?.BucketName).toBe("my-bucket");
+    }
+  });
+
+  it("should parse YAML with !Ref shorthand", () => {
+    const yamlTemplate = `
+Resources:
+  MyBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketNameParam
+`;
+
+    const result = parseTemplate(yamlTemplate);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.template.Resources.MyBucket.Properties?.BucketName).toEqual({
+        Ref: "BucketNameParam",
+      });
+    }
+  });
+
+  it("should parse YAML with !GetAtt shorthand (dot notation)", () => {
+    const yamlTemplate = `
+Resources:
+  MyBucket:
+    Type: AWS::S3::Bucket
+  MyFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Environment:
+        Variables:
+          BUCKET_ARN: !GetAtt MyBucket.Arn
+`;
+
+    const result = parseTemplate(yamlTemplate);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const envVars = result.template.Resources.MyFunction.Properties?.Environment as {
+        Variables: { BUCKET_ARN: unknown };
+      };
+      expect(envVars.Variables.BUCKET_ARN).toEqual({
+        "Fn::GetAtt": ["MyBucket", "Arn"],
+      });
+    }
+  });
+
+  it("should parse YAML with !Sub shorthand", () => {
+    const yamlTemplate = `
+Resources:
+  MyQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "\${AWS::StackName}-queue"
+`;
+
+    const result = parseTemplate(yamlTemplate);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.template.Resources.MyQueue.Properties?.QueueName).toEqual({
+        "Fn::Sub": "${AWS::StackName}-queue",
+      });
+    }
+  });
+
+  it("should parse YAML with !Join shorthand", () => {
+    const yamlTemplate = `
+Resources:
+  MyResource:
+    Type: AWS::CloudFormation::WaitConditionHandle
+    Properties:
+      JoinedValue: !Join
+        - "-"
+        - - prefix
+          - !Ref AWS::StackName
+          - suffix
+`;
+
+    const result = parseTemplate(yamlTemplate);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.template.Resources.MyResource.Properties?.JoinedValue).toEqual({
+        "Fn::Join": ["-", ["prefix", { Ref: "AWS::StackName" }, "suffix"]],
+      });
+    }
+  });
+
+  it("should parse YAML with !If conditional", () => {
+    const yamlTemplate = `
+Resources:
+  MyBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !If
+        - IsProd
+        - prod-bucket
+        - dev-bucket
+`;
+
+    const result = parseTemplate(yamlTemplate);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.template.Resources.MyBucket.Properties?.BucketName).toEqual({
+        "Fn::If": ["IsProd", "prod-bucket", "dev-bucket"],
+      });
+    }
+  });
+
+  it("should parse complex YAML template with multiple intrinsic functions", () => {
+    const yamlTemplate = `
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Complex YAML template
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+
+Conditions:
+  IsProd: !Equals
+    - !Ref Environment
+    - prod
+
+Resources:
+  MyBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "\${Environment}-bucket"
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  MyLambda:
+    Type: AWS::Lambda::Function
+    Condition: IsProd
+    Properties:
+      FunctionName: !Join
+        - "-"
+        - - !Ref Environment
+          - processor
+      Environment:
+        Variables:
+          BUCKET_ARN: !GetAtt MyBucket.Arn
+
+Outputs:
+  BucketArn:
+    Value: !GetAtt MyBucket.Arn
+    Export:
+      Name: !Sub "\${AWS::StackName}-BucketArn"
+`;
+
+    const result = parseTemplate(yamlTemplate);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.template.AWSTemplateFormatVersion).toBe("2010-09-09");
+      expect(result.template.Description).toBe("Complex YAML template");
+      expect(result.template.Parameters?.Environment).toBeDefined();
+      expect(result.template.Conditions?.IsProd).toEqual({
+        "Fn::Equals": [{ Ref: "Environment" }, "prod"],
+      });
+      expect(result.template.Resources.MyLambda.Condition).toBe("IsProd");
+    }
+  });
+
+  it("should return error for invalid YAML syntax", () => {
+    const invalidYaml = `
+Resources:
+  MyBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: [unclosed bracket
+`;
+
+    const result = parseTemplate(invalidYaml);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toMatch(/Invalid template format/);
+    }
   });
 });
 

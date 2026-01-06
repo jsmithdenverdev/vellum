@@ -1,16 +1,16 @@
 import Alert from "@cloudscape-design/components/alert";
-import Box from "@cloudscape-design/components/box";
 import Button from "@cloudscape-design/components/button";
 import CodeEditor from "@cloudscape-design/components/code-editor";
 
 import type { CodeEditorProps } from "@cloudscape-design/components/code-editor";
 import Header from "@cloudscape-design/components/header";
-import SpaceBetween from "@cloudscape-design/components/space-between";
 
 import ace from "ace-builds";
 import "ace-builds/src-noconflict/mode-json";
 import "ace-builds/src-noconflict/theme-dawn";
 import "ace-builds/src-noconflict/theme-tomorrow_night";
+
+import { useTheme } from "@/hooks";
 
 export interface InputPanelProps {
   value: string;
@@ -18,7 +18,6 @@ export interface InputPanelProps {
   onVisualize: () => void;
   error?: string;
   isLoading?: boolean;
-  isDarkMode?: boolean;
 }
 
 const i18nStrings: CodeEditorProps.I18nStrings = {
@@ -47,8 +46,8 @@ export function InputPanel({
   onVisualize,
   error,
   isLoading = false,
-  isDarkMode = false,
 }: InputPanelProps) {
+  const { isDarkMode } = useTheme();
   const editorTheme = isDarkMode ? "tomorrow_night" : "dawn";
 
   const handlePreferencesChange: CodeEditorProps["onPreferencesChange"] = () => {
@@ -56,50 +55,53 @@ export function InputPanel({
   };
 
   return (
-    <Box padding="m">
-      <SpaceBetween direction="vertical" size="l">
+    <div style={{ padding: "16px" }}>
+      {/* Header */}
+      <div style={{ marginBottom: "16px" }}>
         <Header
           variant="h2"
           description="Paste your CloudFormation JSON or YAML template below"
         >
           Template Input
         </Header>
+      </div>
 
-        <div style={{ height: "calc(100vh - 280px)", minHeight: "400px" }}>
-          <CodeEditor
-            ace={ace}
-            language="json"
-            value={value}
-            onDelayedChange={({ detail }) => onChange(detail.value)}
-            onPreferencesChange={handlePreferencesChange}
-            preferences={{ theme: editorTheme, wrapLines: true }}
-            loading={isLoading}
-            i18nStrings={i18nStrings}
-            editorContentHeight={500}
-            themes={{
-              light: ["dawn"],
-              dark: ["tomorrow_night"],
-            }}
-          />
-        </div>
-
-        {error && (
+      {/* Error alert - if present */}
+      {error && (
+        <div style={{ marginBottom: "16px" }}>
           <Alert type="error" header="Template Error">
             {error}
           </Alert>
-        )}
+        </div>
+      )}
 
-        <Box textAlign="right">
-          <Button
-            variant="primary"
-            onClick={onVisualize}
-            loading={isLoading}
-            disabled={!value.trim()}
-          >
-            Visualize
-          </Button>
-        </Box>
-      </SpaceBetween>
-    </Box>
+      {/* Editor */}
+      <CodeEditor
+        ace={ace}
+        language="json"
+        value={value}
+        onDelayedChange={({ detail }) => onChange(detail.value)}
+        onPreferencesChange={handlePreferencesChange}
+        preferences={{ theme: editorTheme, wrapLines: true }}
+        loading={isLoading}
+        i18nStrings={i18nStrings}
+        themes={{
+          light: ["dawn"],
+          dark: ["tomorrow_night"],
+        }}
+      />
+
+      {/* Button */}
+      <div style={{ textAlign: "right", marginTop: "16px" }}>
+        <Button
+          variant="primary"
+          onClick={onVisualize}
+          loading={isLoading}
+          disabled={!value.trim()}
+        >
+          Visualize
+        </Button>
+      </div>
+    </div>
   );
 }

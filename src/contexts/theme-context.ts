@@ -13,6 +13,8 @@ import { createContext } from "react";
 export interface ThemeContextValue {
   /** Whether dark mode is currently active */
   isDarkMode: boolean;
+  /** Toggle dark mode on/off */
+  toggleDarkMode: () => void;
 }
 
 // =============================================================================

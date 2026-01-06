@@ -10,8 +10,9 @@ import type {
   CfnResource,
   CfnValue,
   GetAttFunction,
+  SubFunction,
 } from "../types/cloudformation";
-import { isRef, isGetAtt } from "../types/cloudformation";
+import { isRef, isGetAtt, isSub } from "../types/cloudformation";
 import type { CfnNode, CfnEdge, CfnEdgeData, GraphData, RefType } from "../types/graph";
 
 // =============================================================================
@@ -64,8 +65,139 @@ function extractGetAttTarget(getAttValue: GetAttFunction["Fn::GetAtt"]): {
   };
 }
 
+// =============================================================================
+// Fn::Sub Variable Detection
+// =============================================================================
+
 /**
- * Recursively scans a value for Ref and Fn::GetAtt intrinsic functions.
+ * AWS pseudo-parameters that should be skipped when detecting Fn::Sub references.
+ * These are not references to resources in the template.
+ * @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/pseudo-parameter-reference.html
+ */
+const AWS_PSEUDO_PARAMETERS = new Set([
+  "AWS::AccountId",
+  "AWS::NotificationARNs",
+  "AWS::NoValue",
+  "AWS::Partition",
+  "AWS::Region",
+  "AWS::StackId",
+  "AWS::StackName",
+  "AWS::URLSuffix",
+]);
+
+/**
+ * Regex pattern to match ${VarName} or ${VarName.Attribute} in Fn::Sub strings.
+ * Captures the variable name and optional attribute after a dot.
+ * Does not match literal ${!VarName} which are escaped in Fn::Sub.
+ */
+const FN_SUB_VARIABLE_PATTERN = /\$\{([^!][^}]*)\}/g;
+
+/**
+ * Parses a Fn::Sub template string and extracts variable references.
+ * Variables in ${VarName} format are detected as Ref-type dependencies.
+ * Variables in ${VarName.Attribute} format are detected as GetAtt-type dependencies.
+ * AWS pseudo-parameters (like ${AWS::Region}) are skipped.
+ *
+ * @param templateString - The Fn::Sub template string to parse
+ * @returns Array of detected references
+ */
+function extractSubStringReferences(templateString: string): DetectedReference[] {
+  const references: DetectedReference[] = [];
+  let match: RegExpExecArray | null;
+
+  // Reset regex state for each call
+  FN_SUB_VARIABLE_PATTERN.lastIndex = 0;
+
+  while ((match = FN_SUB_VARIABLE_PATTERN.exec(templateString)) !== null) {
+    const variableExpr = match[1];
+
+    // Check if this is a pseudo-parameter
+    if (AWS_PSEUDO_PARAMETERS.has(variableExpr)) {
+      continue;
+    }
+
+    // Check if this is a GetAtt-style reference (contains a dot)
+    const dotIndex = variableExpr.indexOf(".");
+    if (dotIndex !== -1) {
+      const logicalId = variableExpr.substring(0, dotIndex);
+      const attribute = variableExpr.substring(dotIndex + 1);
+
+      // Skip if the logicalId part is a pseudo-parameter prefix
+      if (logicalId === "AWS") {
+        continue;
+      }
+
+      references.push({
+        targetId: logicalId,
+        refType: "GetAtt",
+        attribute,
+      });
+    } else {
+      // Simple variable reference (Ref-style)
+      references.push({
+        targetId: variableExpr,
+        refType: "Ref",
+      });
+    }
+  }
+
+  return references;
+}
+
+/**
+ * Extracts references from a Fn::Sub intrinsic function.
+ * Handles both simple string form and array form with substitution map.
+ *
+ * Simple form: { "Fn::Sub": "arn:aws:s3:::${MyBucket}/*" }
+ * Array form: { "Fn::Sub": ["${BucketName}/*", { "BucketName": { "Ref": "MyBucket" } }] }
+ *
+ * @param subValue - The value of the Fn::Sub function
+ * @param allReferences - Array to collect detected references into
+ */
+function extractSubReferences(
+  subValue: SubFunction["Fn::Sub"],
+  allReferences: DetectedReference[]
+): void {
+  if (typeof subValue === "string") {
+    // Simple form: just a template string
+    const refs = extractSubStringReferences(subValue);
+    allReferences.push(...refs);
+  } else if (Array.isArray(subValue) && subValue.length >= 1) {
+    // Array form: [templateString, substitutionMap]
+    const templateString = subValue[0];
+
+    if (typeof templateString === "string") {
+      // Extract references from template string
+      const templateRefs = extractSubStringReferences(templateString);
+
+      // If there's a substitution map, the variables in the template string
+      // refer to the map keys, not directly to resources. The map values
+      // may contain Refs/GetAtts that we need to scan.
+      if (subValue.length >= 2 && typeof subValue[1] === "object" && subValue[1] !== null) {
+        const substitutionMap = subValue[1] as Record<string, CfnValue>;
+        const mapKeys = new Set(Object.keys(substitutionMap));
+
+        // Only add template refs that are NOT defined in the substitution map
+        // (those are local variable definitions, not resource references)
+        for (const ref of templateRefs) {
+          if (!mapKeys.has(ref.targetId)) {
+            allReferences.push(ref);
+          }
+        }
+
+        // Scan the substitution map values for Ref/GetAtt/Sub intrinsics
+        // These will be picked up by the recursive scanForReferences call
+        // since we continue scanning after handling Fn::Sub
+      } else {
+        // No substitution map, all template refs are resource references
+        allReferences.push(...templateRefs);
+      }
+    }
+  }
+}
+
+/**
+ * Recursively scans a value for Ref, Fn::GetAtt, and Fn::Sub intrinsic functions.
  * Collects all detected references for edge creation.
  */
 function scanForReferences(value: CfnValue, references: DetectedReference[]): void {
@@ -90,6 +222,26 @@ function scanForReferences(value: CfnValue, references: DetectedReference[]): vo
       refType: "GetAtt",
       attribute,
     });
+    return;
+  }
+
+  // Check for Fn::Sub
+  if (isSub(value)) {
+    extractSubReferences(value["Fn::Sub"], references);
+
+    // Continue scanning for nested intrinsics in the substitution map
+    const subValue = value["Fn::Sub"];
+    if (Array.isArray(subValue) && subValue.length >= 2) {
+      const substitutionMap = subValue[1];
+      if (typeof substitutionMap === "object" && substitutionMap !== null) {
+        for (const key of Object.keys(substitutionMap)) {
+          scanForReferences(
+            (substitutionMap as Record<string, CfnValue>)[key],
+            references
+          );
+        }
+      }
+    }
     return;
   }
 

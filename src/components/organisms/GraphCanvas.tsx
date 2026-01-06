@@ -506,6 +506,9 @@ function getMiniMapNodeColor(node: Node): string {
   return serviceColors[service] ?? "#687078";
 }
 
+// Mobile breakpoint
+const MOBILE_BREAKPOINT = 768;
+
 /**
  * GraphCanvas component for visualizing CloudFormation dependencies
  */
@@ -518,6 +521,16 @@ export function GraphCanvas({
 }: GraphCanvasProps) {
   // Theme context
   const { isDarkMode } = useTheme();
+
+  // Track mobile viewport for hiding search/minimap
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   // Track hovered edge for label display
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
@@ -700,27 +713,32 @@ export function GraphCanvas({
                   <ExportButton />
                 </SpaceBetween>
               </Panel>
-              <Panel position="top-center">
-                <SearchPanel
-                  nodes={initialNodes}
-                  searchTerm={searchTerm}
-                  onSearchChange={setSearchTerm}
-                  selectedServiceTypes={selectedServiceTypes}
-                  onFilterChange={setSelectedServiceTypes}
-                  availableServiceTypes={availableServiceTypes}
-                  onClear={clearSearch}
-                  isSearchActive={isSearchActive}
-                  matchCount={matchingNodeIds.size}
-                  matchingNodeIds={matchingNodeIds}
-                />
-              </Panel>
-              <MiniMap
-                nodeColor={getMiniMapNodeColor}
-                maskColor={isDarkMode ? "rgba(0, 0, 0, 0.3)" : "rgba(0, 0, 0, 0.1)"}
-                position="bottom-right"
-                pannable
-                zoomable
-              />
+              {/* Hide search/filter and minimap on mobile */}
+              {!isMobile && (
+                <>
+                  <Panel position="top-center">
+                    <SearchPanel
+                      nodes={initialNodes}
+                      searchTerm={searchTerm}
+                      onSearchChange={setSearchTerm}
+                      selectedServiceTypes={selectedServiceTypes}
+                      onFilterChange={setSelectedServiceTypes}
+                      availableServiceTypes={availableServiceTypes}
+                      onClear={clearSearch}
+                      isSearchActive={isSearchActive}
+                      matchCount={matchingNodeIds.size}
+                      matchingNodeIds={matchingNodeIds}
+                    />
+                  </Panel>
+                  <MiniMap
+                    nodeColor={getMiniMapNodeColor}
+                    maskColor={isDarkMode ? "rgba(0, 0, 0, 0.3)" : "rgba(0, 0, 0, 0.1)"}
+                    position="bottom-right"
+                    pannable
+                    zoomable
+                  />
+                </>
+              )}
             </ReactFlow>
 
             {/* Loading overlay */}

@@ -58,7 +58,8 @@ const containerStyles: React.CSSProperties = {
   backgroundColor: "var(--color-background-container-content)",
   borderRadius: "8px",
   boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
-  minWidth: "280px",
+  width: "min(280px, calc(100vw - 100px))",
+  maxWidth: "280px",
 };
 
 const statusRowStyles: React.CSSProperties = {

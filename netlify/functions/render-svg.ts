@@ -10,7 +10,6 @@
  * curl "https://vellum.netlify.app/api/render.svg?template=N4Ig..." -o diagram.svg
  */
 
-import type { Context } from "@netlify/functions";
 import LZString from "lz-string";
 
 // Import shared modules using relative paths
@@ -19,15 +18,6 @@ import { parseTemplate } from "../../src/lib/parser";
 import { transformToGraph } from "../../src/lib/graph-transformer";
 import { applyDagreLayout } from "../../src/lib/graph-layout";
 import { renderGraphToSvg, renderErrorSvg } from "../../src/lib/svg-renderer";
-
-// =============================================================================
-// Types
-// =============================================================================
-
-interface RenderOptions {
-  /** Background color (default: #f9fafb) */
-  background?: string;
-}
 
 // =============================================================================
 // Helpers
@@ -72,10 +62,7 @@ function errorResponse(status: number, message: string): Response {
 // Handler
 // =============================================================================
 
-export default async function handler(
-  request: Request,
-  _context: Context
-): Promise<Response> {
+export default async function handler(request: Request): Promise<Response> {
   // Handle CORS preflight
   if (request.method === "OPTIONS") {
     return new Response(null, {

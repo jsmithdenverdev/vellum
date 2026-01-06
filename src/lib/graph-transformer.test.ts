@@ -167,8 +167,8 @@ describe("transformToGraph - Ref Edge Detection", () => {
 
     expect(graph.edges).toHaveLength(1);
     expect(graph.edges[0]).toMatchObject({
-      source: "MyFunction",
-      target: "MyRole",
+      source: "MyRole",
+      target: "MyFunction",
       data: {
         refType: "Ref",
       },
@@ -194,9 +194,9 @@ describe("transformToGraph - Ref Edge Detection", () => {
 
     const graph = transformToGraph(template);
 
-    const edges = graph.edges.filter((e) => e.source === "ResourceC");
+    const edges = graph.edges.filter((e) => e.target === "ResourceC");
     expect(edges).toHaveLength(2);
-    expect(edges.map((e) => e.target)).toEqual(
+    expect(edges.map((e) => e.source)).toEqual(
       expect.arrayContaining(["ResourceA", "ResourceB"])
     );
   });
@@ -227,8 +227,8 @@ describe("transformToGraph - Fn::GetAtt Edge Detection", () => {
 
     expect(graph.edges).toHaveLength(1);
     expect(graph.edges[0]).toMatchObject({
-      source: "MyFunction",
-      target: "MyRole",
+      source: "MyRole",
+      target: "MyFunction",
       data: {
         refType: "GetAtt",
         attribute: "Arn",
@@ -256,8 +256,8 @@ describe("transformToGraph - Fn::GetAtt Edge Detection", () => {
 
     expect(graph.edges).toHaveLength(1);
     expect(graph.edges[0]).toMatchObject({
-      source: "MyFunction",
-      target: "MyRole",
+      source: "MyRole",
+      target: "MyFunction",
       data: {
         refType: "GetAtt",
         attribute: "Arn",
@@ -308,8 +308,8 @@ describe("transformToGraph - DependsOn Edge Detection", () => {
 
     expect(graph.edges).toHaveLength(1);
     expect(graph.edges[0]).toMatchObject({
-      source: "MyQueue",
-      target: "MyBucket",
+      source: "MyBucket",
+      target: "MyQueue",
       data: {
         refType: "DependsOn",
       },
@@ -332,9 +332,9 @@ describe("transformToGraph - DependsOn Edge Detection", () => {
 
     const graph = transformToGraph(template);
 
-    const edges = graph.edges.filter((e) => e.source === "MyFunction");
+    const edges = graph.edges.filter((e) => e.target === "MyFunction");
     expect(edges).toHaveLength(2);
-    expect(edges.map((e) => e.target)).toEqual(
+    expect(edges.map((e) => e.source)).toEqual(
       expect.arrayContaining(["MyBucket", "MyQueue"])
     );
     expect(edges.every((e) => e.data?.refType === "DependsOn")).toBe(true);
@@ -365,8 +365,8 @@ describe("transformToGraph - Nested Intrinsic Functions", () => {
 
     expect(graph.edges).toHaveLength(1);
     expect(graph.edges[0]).toMatchObject({
-      source: "MyFunction",
-      target: "MyBucket",
+      source: "MyBucket",
+      target: "MyFunction",
       data: { refType: "Ref" },
     });
   });
@@ -398,8 +398,8 @@ describe("transformToGraph - Nested Intrinsic Functions", () => {
 
     expect(graph.edges).toHaveLength(1);
     expect(graph.edges[0]).toMatchObject({
-      source: "MyFunction",
-      target: "MyBucket",
+      source: "MyBucket",
+      target: "MyFunction",
       data: { refType: "GetAtt", attribute: "Arn" },
     });
   });
@@ -432,7 +432,7 @@ describe("transformToGraph - Nested Intrinsic Functions", () => {
     const graph = transformToGraph(template);
 
     expect(graph.edges).toHaveLength(1);
-    expect(graph.edges[0].target).toBe("MyRole");
+    expect(graph.edges[0].target).toBe("MyFunction");
   });
 
   it("should detect multiple references in nested structures", () => {
@@ -463,7 +463,7 @@ describe("transformToGraph - Nested Intrinsic Functions", () => {
     const graph = transformToGraph(template);
 
     expect(graph.edges).toHaveLength(2);
-    expect(graph.edges.map((e) => e.target)).toEqual(
+    expect(graph.edges.map((e) => e.source)).toEqual(
       expect.arrayContaining(["ResourceA", "ResourceB"])
     );
   });
@@ -544,7 +544,7 @@ describe("transformToGraph - Parameter References", () => {
     const graph = transformToGraph(template);
 
     expect(graph.edges).toHaveLength(1);
-    expect(graph.edges[0].target).toBe("MyRole");
+    expect(graph.edges[0].target).toBe("MyFunction");
   });
 });
 
@@ -573,7 +573,7 @@ describe("transformToGraph - Edge Deduplication", () => {
     const graph = transformToGraph(template);
 
     const refEdges = graph.edges.filter(
-      (e) => e.source === "MyFunction" && e.target === "MyRole" && e.data?.refType === "Ref"
+      (e) => e.source === "MyRole" && e.target === "MyFunction" && e.data?.refType === "Ref"
     );
     expect(refEdges).toHaveLength(1);
   });

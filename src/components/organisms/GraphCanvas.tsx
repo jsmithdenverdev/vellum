@@ -11,14 +11,20 @@ import {
   Background,
   Controls,
   MiniMap,
+  Panel,
   useNodesState,
   useEdgesState,
+  getNodesBounds,
+  getViewportForBounds,
+  useReactFlow,
   type Node,
   type NodeTypes,
   type ColorMode,
   type NodeMouseHandler,
   BackgroundVariant,
 } from "@xyflow/react";
+import { toSvg } from "html-to-image";
+import Button from "@cloudscape-design/components/button";
 import Box from "@cloudscape-design/components/box";
 import Container from "@cloudscape-design/components/container";
 import Header from "@cloudscape-design/components/header";
@@ -140,6 +146,67 @@ function LoadingOverlay({ isDarkMode }: { isDarkMode: boolean }) {
         </Box>
       </SpaceBetween>
     </div>
+  );
+}
+
+/**
+ * Export button for downloading graph as SVG
+ * Must be rendered inside ReactFlow to access the hook
+ */
+function ExportButton() {
+  const { getNodes } = useReactFlow();
+
+  const handleExport = useCallback(async () => {
+    // Get the viewport element
+    const viewport = document.querySelector(".react-flow__viewport") as HTMLElement;
+    if (!viewport) {
+      console.error("Could not find React Flow viewport");
+      return;
+    }
+
+    try {
+      // Get bounds for proper sizing
+      const nodes = getNodes();
+      const bounds = getNodesBounds(nodes);
+      const padding = 50;
+      const width = bounds.width + padding * 2;
+      const height = bounds.height + padding * 2;
+
+      // Calculate viewport transform for export
+      const viewport_transform = getViewportForBounds(
+        bounds,
+        width,
+        height,
+        0.5,
+        2,
+        padding
+      );
+
+      const svg = await toSvg(viewport, {
+        backgroundColor: "transparent",
+        width,
+        height,
+        style: {
+          width: `${width}px`,
+          height: `${height}px`,
+          transform: `translate(${viewport_transform.x}px, ${viewport_transform.y}px) scale(${viewport_transform.zoom})`,
+        },
+      });
+
+      // Create download link
+      const link = document.createElement("a");
+      link.href = svg;
+      link.download = "cloudformation-graph.svg";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Failed to export SVG:", error);
+    }
+  }, [getNodes]);
+
+  return (
+    <Button iconName="download" variant="icon" onClick={handleExport} ariaLabel="Export as SVG" />
   );
 }
 
@@ -303,6 +370,9 @@ export function GraphCanvas({
                 showInteractive={false}
                 position="top-right"
               />
+              <Panel position="top-left">
+                <ExportButton />
+              </Panel>
               <MiniMap
                 nodeColor={getMiniMapNodeColor}
                 maskColor={isDarkMode ? "rgba(0, 0, 0, 0.3)" : "rgba(0, 0, 0, 0.1)"}

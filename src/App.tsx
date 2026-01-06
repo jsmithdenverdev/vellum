@@ -1,10 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import AppLayout from "@cloudscape-design/components/app-layout";
 
 import { InputPanel, GraphCanvas, DetailsPanel } from "@/components/organisms";
 import { parseTemplate } from "@/lib/parser";
 import { transformToGraph } from "@/lib/graph-transformer";
 import { applyDagreLayout } from "@/lib/graph-layout";
+import { getTemplateFromUrl, setTemplateInUrl } from "@/lib/url-state";
 import type { CfnNode, CfnEdge, CfnNodeData } from "@/types/graph";
 
 function App() {
@@ -37,17 +38,17 @@ function App() {
     setToolsOpen(true);
   }, []);
 
-  const handleVisualize = useCallback(async () => {
+  // Core visualization logic - can be called with any template string
+  const visualizeTemplate = useCallback((template: string, updateUrl = true) => {
     setError(undefined);
     setIsProcessing(true);
 
     try {
       // Step 1: Parse the template
-      const parseResult = parseTemplate(templateInput);
+      const parseResult = parseTemplate(template);
 
       if (!parseResult.success) {
         setError(parseResult.error);
-        setIsProcessing(false);
         return;
       }
 
@@ -60,13 +61,32 @@ function App() {
       // Step 4: Update state
       setNodes(layoutedNodes);
       setEdges(graphData.edges);
+
+      // Step 5: Update URL for sharing (if requested)
+      if (updateUrl) {
+        setTemplateInUrl(template);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "An unexpected error occurred";
       setError(message);
     } finally {
       setIsProcessing(false);
     }
-  }, [templateInput]);
+  }, []);
+
+  // Handler for visualize button click
+  const handleVisualize = useCallback(() => {
+    visualizeTemplate(templateInput);
+  }, [templateInput, visualizeTemplate]);
+
+  // Load template from URL on mount
+  useEffect(() => {
+    const urlTemplate = getTemplateFromUrl();
+    if (urlTemplate) {
+      setTemplateInput(urlTemplate);
+      visualizeTemplate(urlTemplate, false); // Don't update URL since it's already there
+    }
+  }, [visualizeTemplate]);
 
   return (
     <AppLayout

@@ -149,3 +149,6 @@ src/lib/icon-cache.json
 
 # Local Netlify folder
 .netlify
+
+# Ignore OpenCode
+.opencode

@@ -5,7 +5,7 @@
  * CloudFormation resource dependencies.
  */
 
-import { useEffect, useMemo, useCallback, useState } from "react";
+import { useEffect, useMemo, useCallback, useState } from 'react'
 import {
   ReactFlow,
   Background,
@@ -29,24 +29,26 @@ import {
   type EdgeMouseHandler,
   type EdgeProps,
   BackgroundVariant,
-} from "@xyflow/react";
-import { toSvg } from "html-to-image";
-import Button from "@cloudscape-design/components/button";
-import Box from "@cloudscape-design/components/box";
-import Container from "@cloudscape-design/components/container";
-import Header from "@cloudscape-design/components/header";
-import Icon from "@cloudscape-design/components/icon";
-import SpaceBetween from "@cloudscape-design/components/space-between";
-import Spinner from "@cloudscape-design/components/spinner";
+} from '@xyflow/react'
+import { toSvg } from 'html-to-image'
+import Button from '@cloudscape-design/components/button'
+import Box from '@cloudscape-design/components/box'
+import Container from '@cloudscape-design/components/container'
+import Header from '@cloudscape-design/components/header'
+import Icon from '@cloudscape-design/components/icon'
+import SpaceBetween from '@cloudscape-design/components/space-between'
+import Spinner from '@cloudscape-design/components/spinner'
 
-import { ResourceNode, SearchBar } from "@/components/molecules";
-import { useTheme } from "@/hooks/useTheme";
-import { useGraphSearch } from "@/hooks/useGraphSearch";
-import { getCfnNodeData } from "@/types/graph";
-import type { CfnNode, CfnEdge, CfnNodeData, CfnEdgeData } from "@/types/graph";
+import { ResourceNode, SearchBar, GraphStatsPanel, GroupingControls } from '@/components/molecules'
+import { useTheme } from '@/hooks/useTheme'
+import { useGraphSearch } from '@/hooks/useGraphSearch'
+import { useGraphAnalytics } from '@/hooks/useGraphAnalytics'
+import { useResourceGrouping } from '@/hooks/useResourceGrouping'
+import { getCfnNodeData } from '@/types/graph'
+import type { CfnNode, CfnEdge, CfnNodeData, CfnEdgeData } from '@/types/graph'
 
 // Import React Flow styles
-import "@xyflow/react/dist/style.css";
+import '@xyflow/react/dist/style.css'
 
 // =============================================================================
 // Types
@@ -54,15 +56,15 @@ import "@xyflow/react/dist/style.css";
 
 export interface GraphCanvasProps {
   /** Nodes to display in the graph */
-  nodes?: CfnNode[];
+  nodes?: CfnNode[]
   /** Edges connecting the nodes */
-  edges?: CfnEdge[];
+  edges?: CfnEdge[]
   /** Whether the graph is currently being processed */
-  isLoading?: boolean;
+  isLoading?: boolean
   /** Callback when a node is clicked */
-  onNodeClick?: (nodeData: CfnNodeData) => void;
+  onNodeClick?: (nodeData: CfnNodeData) => void
   /** Callback when a node is double-clicked */
-  onNodeDoubleClick?: (nodeData: CfnNodeData) => void;
+  onNodeDoubleClick?: (nodeData: CfnNodeData) => void
 }
 
 // =============================================================================
@@ -71,7 +73,7 @@ export interface GraphCanvasProps {
 
 const nodeTypes: NodeTypes = {
   cfnResource: ResourceNode,
-};
+}
 
 // =============================================================================
 // Custom Edge with Hover Label
@@ -81,8 +83,9 @@ const nodeTypes: NodeTypes = {
  * Props for the custom edge with hover label
  */
 interface LabeledEdgeProps extends EdgeProps<Edge<CfnEdgeData>> {
-  hoveredEdgeId: string | null;
-  isDarkMode: boolean;
+  hoveredEdgeId: string | null
+  isDarkMode: boolean
+  isInDependencyPath: boolean
 }
 
 /**
@@ -99,6 +102,7 @@ function LabeledEdge({
   data,
   hoveredEdgeId,
   isDarkMode,
+  isInDependencyPath,
   style,
   markerEnd,
 }: LabeledEdgeProps) {
@@ -109,21 +113,22 @@ function LabeledEdge({
     targetY,
     sourcePosition,
     targetPosition,
-  });
+  })
 
-  const isHovered = hoveredEdgeId === id;
+  const isHovered = hoveredEdgeId === id
+  const isHighlighted = isInDependencyPath || isHovered
 
   // Format the label based on reference type
   const getEdgeLabel = (): string => {
-    if (!data) return "";
-    const { refType, attribute } = data;
-    if (refType === "GetAtt" && attribute) {
-      return `GetAtt: ${attribute}`;
+    if (!data) return ''
+    const { refType, attribute } = data
+    if (refType === 'GetAtt' && attribute) {
+      return `GetAtt: ${attribute}`
     }
-    return refType;
-  };
+    return refType
+  }
 
-  const labelText = getEdgeLabel();
+  const labelText = getEdgeLabel()
 
   return (
     <>
@@ -132,35 +137,36 @@ function LabeledEdge({
         path={edgePath}
         style={{
           ...style,
-          strokeWidth: isHovered ? 2.5 : (style?.strokeWidth ?? 1.5),
-          stroke: isHovered
+          strokeWidth: isHighlighted ? 2.5 : (style?.strokeWidth ?? 1.5),
+          stroke: isHighlighted
             ? isDarkMode
-              ? "#539fe5"
-              : "#0972d3"
-            : (style?.stroke ?? (isDarkMode ? "#7d8998" : "#687078")),
+              ? '#539fe5'
+              : '#0972d3'
+            : (style?.stroke ?? (isDarkMode ? '#7d8998' : '#687078')),
+          opacity: isInDependencyPath && !isHovered ? 0.8 : 1,
         }}
         markerEnd={markerEnd}
       />
-      {isHovered && labelText && (
+      {labelText && (
         <EdgeLabelRenderer>
           <div
             style={{
-              position: "absolute",
+              position: 'absolute',
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-              pointerEvents: "none",
-              backgroundColor: isDarkMode ? "#232f3e" : "#ffffff",
-              color: isDarkMode ? "#ffffff" : "#16191f",
-              padding: "4px 8px",
-              borderRadius: "4px",
-              fontSize: "11px",
-              fontWeight: 500,
-              fontFamily:
-                '"Amazon Ember", "Helvetica Neue", Roboto, Arial, sans-serif',
-              border: `1px solid ${isDarkMode ? "#3f4b5b" : "#d1d5db"}`,
+              pointerEvents: 'none',
+              backgroundColor: isDarkMode ? '#232f3e' : '#ffffff',
+              color: isDarkMode ? '#ffffff' : '#16191f',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              fontSize: '11px',
+              fontWeight: isHovered ? 600 : 500,
+              fontFamily: '"Amazon Ember", "Helvetica Neue", Roboto, Arial, sans-serif',
+              border: `1px solid ${isDarkMode ? '#3f4b5b' : '#d1d5db'}`,
               boxShadow: isDarkMode
-                ? "0 2px 4px rgba(0, 0, 0, 0.3)"
-                : "0 2px 4px rgba(0, 0, 0, 0.1)",
-              zIndex: 1000,
+                ? '0 2px 4px rgba(0, 0, 0, 0.3)'
+                : '0 2px 4px rgba(0, 0, 0, 0.1)',
+              opacity: isHovered ? 1 : 0.7,
+              zIndex: isHovered ? 1000 : 100,
             }}
           >
             {labelText}
@@ -168,7 +174,7 @@ function LabeledEdge({
         </EdgeLabelRenderer>
       )}
     </>
-  );
+  )
 }
 
 // =============================================================================
@@ -176,10 +182,10 @@ function LabeledEdge({
 // =============================================================================
 
 const containerStyles: React.CSSProperties = {
-  height: "100%",
-  display: "flex",
-  flexDirection: "column",
-};
+  height: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+}
 
 /**
  * Get flow container styles based on theme
@@ -187,11 +193,11 @@ const containerStyles: React.CSSProperties = {
 function getFlowContainerStyles(isDarkMode: boolean): React.CSSProperties {
   return {
     flex: 1,
-    minHeight: "400px",
-    backgroundColor: isDarkMode ? "#0f1b2a" : "#fafafa",
-    borderRadius: "4px",
-    overflow: "hidden",
-  };
+    minHeight: '400px',
+    backgroundColor: isDarkMode ? '#0f1b2a' : '#fafafa',
+    borderRadius: '4px',
+    overflow: 'hidden',
+  }
 }
 
 /**
@@ -199,17 +205,15 @@ function getFlowContainerStyles(isDarkMode: boolean): React.CSSProperties {
  */
 function getLoadingOverlayStyles(isDarkMode: boolean): React.CSSProperties {
   return {
-    position: "absolute",
+    position: 'absolute',
     inset: 0,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: isDarkMode
-      ? "rgba(15, 27, 42, 0.85)"
-      : "rgba(255, 255, 255, 0.85)",
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: isDarkMode ? 'rgba(15, 27, 42, 0.85)' : 'rgba(255, 255, 255, 0.85)',
     zIndex: 10,
-    borderRadius: "4px",
-  };
+    borderRadius: '4px',
+  }
 }
 
 // =============================================================================
@@ -224,7 +228,7 @@ function EmptyState() {
     <Box
       display="block"
       textAlign="center"
-      padding={{ vertical: "xxxl" }}
+      padding={{ vertical: 'xxxl' }}
       color="text-body-secondary"
     >
       <SpaceBetween direction="vertical" size="s" alignItems="center">
@@ -237,66 +241,66 @@ function EmptyState() {
         </Box>
       </SpaceBetween>
     </Box>
-  );
+  )
 }
 
 /**
  * Skeleton placeholder for loading state
  */
 function SkeletonNode({ isDarkMode, delay }: { isDarkMode: boolean; delay: number }) {
-  const skeletonColor = isDarkMode ? "#3f4b5b" : "#d1d5db";
-  const shimmerColor = isDarkMode ? "#4a5568" : "#e5e7eb";
+  const skeletonColor = isDarkMode ? '#3f4b5b' : '#d1d5db'
+  const shimmerColor = isDarkMode ? '#4a5568' : '#e5e7eb'
 
   return (
     <div
       style={{
-        width: "180px",
-        height: "60px",
-        backgroundColor: isDarkMode ? "#232f3e" : "#ffffff",
-        borderRadius: "8px",
-        border: `1px solid ${isDarkMode ? "#3f4b5b" : "#d1d5db"}`,
-        padding: "10px 14px",
-        display: "flex",
-        alignItems: "center",
-        gap: "12px",
+        width: '180px',
+        height: '60px',
+        backgroundColor: isDarkMode ? '#232f3e' : '#ffffff',
+        borderRadius: '8px',
+        border: `1px solid ${isDarkMode ? '#3f4b5b' : '#d1d5db'}`,
+        padding: '10px 14px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
         animation: `pulse 1.5s ease-in-out ${delay}ms infinite`,
       }}
     >
       <div
         style={{
           flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          gap: "6px",
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '6px',
         }}
       >
         <div
           style={{
-            width: "60%",
-            height: "10px",
+            width: '60%',
+            height: '10px',
             backgroundColor: skeletonColor,
-            borderRadius: "4px",
+            borderRadius: '4px',
           }}
         />
         <div
           style={{
-            width: "80%",
-            height: "12px",
+            width: '80%',
+            height: '12px',
             backgroundColor: skeletonColor,
-            borderRadius: "4px",
+            borderRadius: '4px',
           }}
         />
       </div>
       <div
         style={{
-          width: "40px",
-          height: "40px",
+          width: '40px',
+          height: '40px',
           backgroundColor: shimmerColor,
-          borderRadius: "6px",
+          borderRadius: '6px',
         }}
       />
     </div>
-  );
+  )
 }
 
 /**
@@ -309,14 +313,14 @@ function LoadingOverlay({ isDarkMode }: { isDarkMode: boolean }) {
         {/* Skeleton nodes to indicate graph loading */}
         <div
           style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "20px",
-            alignItems: "center",
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
+            alignItems: 'center',
           }}
         >
           <SkeletonNode isDarkMode={isDarkMode} delay={0} />
-          <div style={{ display: "flex", gap: "40px" }}>
+          <div style={{ display: 'flex', gap: '40px' }}>
             <SkeletonNode isDarkMode={isDarkMode} delay={100} />
             <SkeletonNode isDarkMode={isDarkMode} delay={200} />
           </div>
@@ -341,7 +345,7 @@ function LoadingOverlay({ isDarkMode }: { isDarkMode: boolean }) {
         `}
       </style>
     </div>
-  );
+  )
 }
 
 /**
@@ -349,36 +353,29 @@ function LoadingOverlay({ isDarkMode }: { isDarkMode: boolean }) {
  * Must be rendered inside ReactFlow to access the hook
  */
 function ExportButton() {
-  const { getNodes } = useReactFlow();
+  const { getNodes } = useReactFlow()
 
   const handleExport = useCallback(async () => {
     // Get the viewport element
-    const viewport = document.querySelector(".react-flow__viewport") as HTMLElement;
+    const viewport = document.querySelector('.react-flow__viewport') as HTMLElement
     if (!viewport) {
-      console.error("Could not find React Flow viewport");
-      return;
+      console.error('Could not find React Flow viewport')
+      return
     }
 
     try {
       // Get bounds for proper sizing
-      const nodes = getNodes();
-      const bounds = getNodesBounds(nodes);
-      const padding = 50;
-      const width = bounds.width + padding * 2;
-      const height = bounds.height + padding * 2;
+      const nodes = getNodes()
+      const bounds = getNodesBounds(nodes)
+      const padding = 50
+      const width = bounds.width + padding * 2
+      const height = bounds.height + padding * 2
 
       // Calculate viewport transform for export
-      const viewport_transform = getViewportForBounds(
-        bounds,
-        width,
-        height,
-        0.5,
-        2,
-        padding
-      );
+      const viewport_transform = getViewportForBounds(bounds, width, height, 0.5, 2, padding)
 
       const svg = await toSvg(viewport, {
-        backgroundColor: "transparent",
+        backgroundColor: 'transparent',
         width,
         height,
         style: {
@@ -386,23 +383,23 @@ function ExportButton() {
           height: `${height}px`,
           transform: `translate(${viewport_transform.x}px, ${viewport_transform.y}px) scale(${viewport_transform.zoom})`,
         },
-      });
+      })
 
       // Create download link
-      const link = document.createElement("a");
-      link.href = svg;
-      link.download = "cloudformation-graph.svg";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const link = document.createElement('a')
+      link.href = svg
+      link.download = 'cloudformation-graph.svg'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
     } catch (error) {
-      console.error("Failed to export SVG:", error);
+      console.error('Failed to export SVG:', error)
     }
-  }, [getNodes]);
+  }, [getNodes])
 
   return (
     <Button iconName="download" variant="icon" onClick={handleExport} ariaLabel="Export as SVG" />
-  );
+  )
 }
 
 /**
@@ -410,16 +407,16 @@ function ExportButton() {
  * to access the useReactFlow hook for zooming to matched nodes
  */
 interface SearchPanelProps {
-  nodes: CfnNode[];
-  searchTerm: string;
-  onSearchChange: (term: string) => void;
-  selectedServiceTypes: string[];
-  onFilterChange: (types: string[]) => void;
-  availableServiceTypes: ReturnType<typeof useGraphSearch>["availableServiceTypes"];
-  onClear: () => void;
-  isSearchActive: boolean;
-  matchCount: number;
-  matchingNodeIds: Set<string>;
+  nodes: CfnNode[]
+  searchTerm: string
+  onSearchChange: (term: string) => void
+  selectedServiceTypes: string[]
+  onFilterChange: (types: string[]) => void
+  availableServiceTypes: ReturnType<typeof useGraphSearch>['availableServiceTypes']
+  onClear: () => void
+  isSearchActive: boolean
+  matchCount: number
+  matchingNodeIds: Set<string>
 }
 
 function SearchPanel({
@@ -434,15 +431,15 @@ function SearchPanel({
   matchCount,
   matchingNodeIds,
 }: SearchPanelProps) {
-  const { setCenter } = useReactFlow();
+  const { setCenter } = useReactFlow()
 
   // Zoom to first matching node
   const handleZoomToMatch = useCallback(() => {
-    if (matchingNodeIds.size === 0) return;
+    if (matchingNodeIds.size === 0) return
 
     // Get the first matching node
-    const firstMatchId = Array.from(matchingNodeIds)[0];
-    const matchingNode = nodes.find((n) => n.id === firstMatchId);
+    const firstMatchId = Array.from(matchingNodeIds)[0]
+    const matchingNode = nodes.find((n) => n.id === firstMatchId)
 
     if (matchingNode && matchingNode.position) {
       // Center the view on the matching node
@@ -450,12 +447,12 @@ function SearchPanel({
         matchingNode.position.x + 110, // Center on node (node width ~220)
         matchingNode.position.y + 30, // Center on node (node height ~60)
         { zoom: 1, duration: 400 }
-      );
+      )
     }
-  }, [matchingNodeIds, nodes, setCenter]);
+  }, [matchingNodeIds, nodes, setCenter])
 
   // If there are no nodes, don't show the search bar
-  if (nodes.length === 0) return null;
+  if (nodes.length === 0) return null
 
   return (
     <SearchBar
@@ -470,44 +467,44 @@ function SearchPanel({
       totalCount={nodes.length}
       onZoomToMatch={handleZoomToMatch}
     />
-  );
+  )
 }
 
 /**
  * Extracts the AWS service name from a resource type
  */
 function extractService(resourceType: string): string {
-  const parts = resourceType.split("::");
-  if (parts.length >= 2 && parts[0] === "AWS") {
-    return parts[1];
+  const parts = resourceType.split('::')
+  if (parts.length >= 2 && parts[0] === 'AWS') {
+    return parts[1]
   }
-  return "Unknown";
+  return 'Unknown'
 }
 
 /**
  * MiniMap node color function based on service type
  */
 function getMiniMapNodeColor(node: Node): string {
-  const data = getCfnNodeData(node);
-  if (!data?.resourceType) return "#687078";
+  const data = getCfnNodeData(node)
+  if (!data?.resourceType) return '#687078'
 
-  const service = extractService(data.resourceType);
+  const service = extractService(data.resourceType)
 
   const serviceColors: Record<string, string> = {
-    EC2: "#ff9900",
-    S3: "#569a31",
-    Lambda: "#ff9900",
-    DynamoDB: "#4053d6",
-    RDS: "#4053d6",
-    IAM: "#dd344c",
-    VPC: "#8c4fff",
-  };
+    EC2: '#ff9900',
+    S3: '#569a31',
+    Lambda: '#ff9900',
+    DynamoDB: '#4053d6',
+    RDS: '#4053d6',
+    IAM: '#dd344c',
+    VPC: '#8c4fff',
+  }
 
-  return serviceColors[service] ?? "#687078";
+  return serviceColors[service] ?? '#687078'
 }
 
 // Mobile breakpoint
-const MOBILE_BREAKPOINT = 768;
+const MOBILE_BREAKPOINT = 768
 
 /**
  * GraphCanvas component for visualizing CloudFormation dependencies
@@ -520,20 +517,20 @@ export function GraphCanvas({
   onNodeDoubleClick,
 }: GraphCanvasProps) {
   // Theme context
-  const { isDarkMode } = useTheme();
+  const { isDarkMode } = useTheme()
 
   // Track mobile viewport for hiding search/minimap
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
+    const checkMobile = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   // Track hovered edge for label display
-  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
+  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null)
 
   // Search and filter functionality
   const {
@@ -545,60 +542,82 @@ export function GraphCanvas({
     matchingNodeIds,
     isSearchActive,
     clearSearch,
-  } = useGraphSearch(initialNodes);
+  } = useGraphSearch(initialNodes)
 
-  // Apply search/filter state to nodes
+  // Graph analytics and dependency path highlighting
+  const { selectedNodeId, dependencyPaths, metrics, selectNode, clearSelection } =
+    useGraphAnalytics(initialNodes, initialEdges)
+
+  // Resource grouping
+  const { isGroupingEnabled, groups, toggleGrouping } = useResourceGrouping(initialNodes)
+
+  // Apply search/filter state and dependency highlighting to nodes
   const nodesWithSearchState = useMemo(() => {
-    if (!isSearchActive) return initialNodes;
+    return initialNodes.map((node) => {
+      const isInDependencyPath = dependencyPaths
+        ? selectedNodeId === node.id ||
+          dependencyPaths.upstream.has(node.id) ||
+          dependencyPaths.downstream.has(node.id)
+        : false
 
-    return initialNodes.map((node) => ({
-      ...node,
-      data: {
-        ...node.data,
-        isDimmed: !matchingNodeIds.has(node.id),
-        isHighlighted: matchingNodeIds.has(node.id),
-      },
-    }));
-  }, [initialNodes, isSearchActive, matchingNodeIds]);
+      const isSearchMatch = matchingNodeIds.has(node.id)
+      const shouldDim =
+        (isSearchActive && !isSearchMatch) || (dependencyPaths && !isInDependencyPath)
+      const shouldHighlight = isSearchMatch || selectedNodeId === node.id
+
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          isDimmed: shouldDim,
+          isHighlighted: shouldHighlight,
+        },
+      }
+    })
+  }, [initialNodes, isSearchActive, matchingNodeIds, selectedNodeId, dependencyPaths])
 
   // React Flow state management
-  const [nodes, setNodes, onNodesChange] = useNodesState(nodesWithSearchState);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState(nodesWithSearchState)
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
 
   // Update nodes/edges when props or search state changes
   useEffect(() => {
-    setNodes(nodesWithSearchState);
-    setEdges(initialEdges);
-  }, [nodesWithSearchState, initialEdges, setNodes, setEdges]);
+    setNodes(nodesWithSearchState)
+    setEdges(initialEdges)
+  }, [nodesWithSearchState, initialEdges, setNodes, setEdges])
 
   // Enable virtualization for large graphs (>50 nodes)
-  const shouldVirtualize = initialNodes.length > 50;
+  const shouldVirtualize = initialNodes.length > 50
 
-  // Create custom edge types with hover state
+  // Create custom edge types with hover state and dependency path highlighting
   const edgeTypes: EdgeTypes = useMemo(
     () => ({
-      labeled: (props: EdgeProps<Edge<CfnEdgeData>>) => (
-        <LabeledEdge
-          {...props}
-          hoveredEdgeId={hoveredEdgeId}
-          isDarkMode={isDarkMode}
-        />
-      ),
+      labeled: (props: EdgeProps<Edge<CfnEdgeData>>) => {
+        const isInPath = dependencyPaths?.edgeIds.has(props.id) ?? false
+        return (
+          <LabeledEdge
+            {...props}
+            hoveredEdgeId={hoveredEdgeId}
+            isDarkMode={isDarkMode}
+            isInDependencyPath={isInPath}
+          />
+        )
+      },
     }),
-    [hoveredEdgeId, isDarkMode]
-  );
+    [hoveredEdgeId, isDarkMode, dependencyPaths]
+  )
 
   // Default edge options - theme aware, use custom labeled edge type
   const defaultEdgeOptions = useMemo(
     () => ({
-      type: "labeled" as const,
+      type: 'labeled' as const,
       style: {
-        stroke: isDarkMode ? "#7d8998" : "#687078",
+        stroke: isDarkMode ? '#7d8998' : '#687078',
         strokeWidth: 1.5,
       },
     }),
     [isDarkMode]
-  );
+  )
 
   // Fit view options
   const fitViewOptions = useMemo(
@@ -607,48 +626,57 @@ export function GraphCanvas({
       duration: 400,
     }),
     []
-  );
+  )
 
   // Determine if we should show the empty state
-  const showEmptyState = initialNodes.length === 0 && !isLoading;
+  const showEmptyState = initialNodes.length === 0 && !isLoading
 
   // Color mode for React Flow - based on theme
-  const colorMode: ColorMode = isDarkMode ? "dark" : "light";
+  const colorMode: ColorMode = isDarkMode ? 'dark' : 'light'
 
   // Background dot color based on theme
-  const backgroundDotColor = isDarkMode ? "#414d5c" : "#d1d5db";
+  const backgroundDotColor = isDarkMode ? '#414d5c' : '#d1d5db'
 
-  // Handle node click
+  // Handle node click - toggle dependency path highlighting
   const handleNodeClick: NodeMouseHandler = useCallback(
     (_event, node) => {
-      const nodeData = getCfnNodeData(node);
+      const nodeData = getCfnNodeData(node)
+
+      // Toggle dependency path highlighting
+      if (selectedNodeId === node.id) {
+        clearSelection()
+      } else {
+        selectNode(node.id)
+      }
+
+      // Call external callback if provided
       if (onNodeClick && nodeData) {
-        onNodeClick(nodeData);
+        onNodeClick(nodeData)
       }
     },
-    [onNodeClick]
-  );
+    [onNodeClick, selectedNodeId, selectNode, clearSelection]
+  )
 
   // Handle node double-click
   const handleNodeDoubleClick: NodeMouseHandler = useCallback(
     (_event, node) => {
-      const nodeData = getCfnNodeData(node);
+      const nodeData = getCfnNodeData(node)
       if (onNodeDoubleClick && nodeData) {
-        onNodeDoubleClick(nodeData);
+        onNodeDoubleClick(nodeData)
       }
     },
     [onNodeDoubleClick]
-  );
+  )
 
   // Handle edge mouse enter for hover label
   const handleEdgeMouseEnter: EdgeMouseHandler = useCallback((_event, edge) => {
-    setHoveredEdgeId(edge.id);
-  }, []);
+    setHoveredEdgeId(edge.id)
+  }, [])
 
   // Handle edge mouse leave
   const handleEdgeMouseLeave: EdgeMouseHandler = useCallback(() => {
-    setHoveredEdgeId(null);
-  }, []);
+    setHoveredEdgeId(null)
+  }, [])
 
   return (
     <Container
@@ -656,9 +684,7 @@ export function GraphCanvas({
         <Header
           variant="h2"
           description="Visual representation of resources and dependencies"
-          counter={
-            initialNodes.length > 0 ? `(${initialNodes.length} resources)` : undefined
-          }
+          counter={initialNodes.length > 0 ? `(${initialNodes.length} resources)` : undefined}
         >
           Resource Graph
         </Header>
@@ -669,7 +695,7 @@ export function GraphCanvas({
         {showEmptyState ? (
           <EmptyState />
         ) : (
-          <div style={{ ...getFlowContainerStyles(isDarkMode), position: "relative" }}>
+          <div style={{ ...getFlowContainerStyles(isDarkMode), position: 'relative' }}>
             <ReactFlow
               nodes={nodes}
               edges={edges}
@@ -711,6 +737,12 @@ export function GraphCanvas({
               <Panel position="top-left">
                 <SpaceBetween direction="horizontal" size="xs" alignItems="center">
                   <ExportButton />
+                  <GroupingControls
+                    isGroupingEnabled={isGroupingEnabled}
+                    groupCount={groups.length}
+                    onToggle={toggleGrouping}
+                    hasNodes={initialNodes.length > 0}
+                  />
                 </SpaceBetween>
               </Panel>
               {/* Hide search/filter and minimap on mobile */}
@@ -732,11 +764,16 @@ export function GraphCanvas({
                   </Panel>
                   <MiniMap
                     nodeColor={getMiniMapNodeColor}
-                    maskColor={isDarkMode ? "rgba(0, 0, 0, 0.3)" : "rgba(0, 0, 0, 0.1)"}
+                    maskColor={isDarkMode ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.1)'}
                     position="bottom-right"
                     pannable
                     zoomable
                   />
+                  <Panel position="bottom-left">
+                    <div style={{ maxWidth: '320px' }}>
+                      <GraphStatsPanel metrics={metrics} compact />
+                    </div>
+                  </Panel>
                 </>
               )}
             </ReactFlow>
@@ -747,5 +784,5 @@ export function GraphCanvas({
         )}
       </div>
     </Container>
-  );
+  )
 }
